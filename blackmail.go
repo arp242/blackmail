@@ -108,6 +108,20 @@ func BccNames(nameAddr ...string) []recipient { return rcptNames("bcc", nameAddr
 // TODO: maybe also add helpers to parse?
 // func ToParse(in string) []recipient { return rcpt(mail.Parse(in)) }
 
+// TODO: maybe add a From() function too, just so it looks nicer:
+//
+//    err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
+//        blackmail.Address("", "blackmail@example.com"),
+//        blackmail.To("Name", "victim@example.com"),
+//        blackmail.Bodyf("I can haz ur bitcoinz?"))
+//
+// vs.
+//
+//    err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
+//        blackmail.From("", "blackmail@example.com"),
+//        blackmail.To("Name", "victim@example.com"),
+//        blackmail.Bodyf("I can haz ur bitcoinz?"))
+
 // Message formats a message.
 func Message(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) ([]byte, []string) {
 	return message(subject, from, rcpt, parts...)

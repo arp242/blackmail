@@ -1,42 +1,45 @@
-Blackmail is a Go package to send emails.
+Blackmail is a Go package to send emails. It has an easy to use API and supports
+email signing without too much effort.
 
-Current status: *work-in-progress*. It should mostly work. Probably 😅 Some
-things are not yet implemented as documented (specifically: signing and "direct"
-sending doesn't work yet).
+Current status: **work-in-progress**. Most of it works, but the API isn't stable
+yet and some things are not yet implemented as documented (specifically: signing
+and "direct" sending doesn't work yet, and some Mailer options don't either).
 
 Why a new package? I didn't care much for the API of many of the existing
 solutions. I also wanted an email package which supports easy PGP signing
 out-of-the-box (see [this article][sign] for some background on that).
 
 Import the library as `zgo.at/blackmail`; [godoc][godoc]. There is also a smtp
-client at `zgo.at/blackmail/smtp` which can be used without the main blackmail
-client.
+client library at `zgo.at/blackmail/smtp` which can be used without the main
+blackmail client if you want. It's a modified version of net/smtp (via
+[go-smtp][go-smtp], although I removed most added features from that).
 
 There is a small commandline utility at `cmd/blackmail`; try it with `go run
 ./cmd/blackmail`.
 
-The main use case is cases where you just want to send off an email and be done
-with it. Non-goals include things like parsing email messages or a one-stop-shop
-for your very specific complex requirements (but it should be able to handle all
-common use cases).
+The main use case where you just want to send off an email and be done with it.
+Non-goals include things like parsing email messages or a one-stop-shop for your
+very specific complex requirements. It should be able to handle all common (and
+not-so-common) use cases though.
 
 [godoc]: https://pkg.go.dev/zgo.at/blackmail
 [sign]: https://www.arp242.net/signing-emails.html
+[go-smtp]: https://github.com/emersion/go-smtp
 
 Example
 -------
 
 ```go
 // Send a new message using blackmail.DefaultMailer
-err := blackmail.Send("Subject!",
-    blackmail.Address("My name", "myemail@example.com"),
-    blackmail.To("Name", "addr"),
-    blackmail.Bodyf("Well, hello there!"))
+err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
+    blackmail.Address("", "blackmail@example.com"),
+    blackmail.To("Name", "victim@example.com"),
+    blackmail.Bodyf("I can haz ur bitcoinz?"))
 
 // A more complex message.
-err = blackmail.Send("Subject!",
-    blackmail.Address("My name", "myemail@example.com"),
-    append(blackmail.To("Name", "addr"), blackmail.Cc("Other", "addr")...),
+err = blackmail.Send("I saw what you did last night 😏",
+    blackmail.Address("😏", "blackmail@example.com"),
+    append(blackmail.To("Name", "victim@example.com"), blackmail.Cc("Other", "other@example.com")...),
     blackmail.Text("Text part")
     blackmail.HTML("HTML part",
         blackmail.InlineImage("image/png", "logo.png", imgbytes)))
@@ -52,7 +55,7 @@ mailer = blackmail.NewMailer("smtp://user:pass@localhost:25
     blackmail.RequireSTARTLS(true))
 
 // Get RF5322 message with a list of recipients to send it to (To + Cc + Bcc).
-msg, to := blackmail.Message("subject", [..])
+msg, to := blackmail.Message([.. same arguments as Send() ..])
 ```
 
 See the test cases in [`blackmail_test.go`](/blackmail_test.go#L21) for various
@@ -103,7 +106,8 @@ Setting up email clients to *verify* signatures is easy:
    website or "welcome to our service" email.
 
 And that's it. Signing your *own* stuff, encryption, and key distribution from
-random strangers from the internet is hard, but this isn't.
+random strangers from the internet is hard, but this kind of trust-on-first-use
+model isn't too hard.
 
 I suspect a lot of the opposition against *any* form of PGP comes from people
 traumatised from the `gpg` CLI or other really hard PGP interfaces like
@@ -120,10 +124,11 @@ make it harder for many people to break in to your house?
 
 Even experts can struggle to determine if an email is genuine or a phising/scam
 attempt. Signing doesn't provide perfect protection against it, but it does
-improve on the current situation which has been unchanged for over 20 years.
-Perfect security guarantees don't exist, but this is *better* security.
+improve on the current situation – a situation which has been unchanged for over
+20 years. Perfect security guarantees don't exist, but this is *better*
+security.
 
-There are perhaps better solution – there is certainly space for a better
+There are perhaps better solutions – there is certainly space for a better
 signing protocol like minisign – but the infrastructure and support already
 exists for OpenPGP and it will be years before *[something-else]* will gain
 enough traction to be usable. For the time being, OpenPGP is what we're stuck
@@ -140,7 +145,7 @@ The certificate chain used for the TLS connection is not signed by a known
 authority. It's a self-signed certificate or you don't have the root
 certificates installed.
 
-### How can I use a @ in my username"
+### How can I use a @ in my username?
 
 Encode as `%40`:
 
