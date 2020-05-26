@@ -1,0 +1,44 @@
+From: <me@example.com>
+To: "Customer" <cust@example.com>
+Cc: <x@x.x>
+Message-Id: <blackmail-20190618133700.1234-16@example.com>
+Date: Tue, 18 Jun 2019 13:37:00 +0000
+Subject: Re: autoreply
+Auto-Submitted: auto-replied
+X-Auto-Response-Suppress: All
+Precedence: auto_reply
+List-Id: <foo>
+In-Reply-To: <prev-msgid@example.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="XXX"
+
+--XXX
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8
+
+Auto respond
+--XXX
+Content-Type: multipart/related;
+	boundary="XXX222"
+
+--XXX222
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset=utf-8
+
+<b>Auto respond</b><br><img src=3D"cid:20190618133700.1234-1tru1p8-16@black=
+mail"
+--XXX222
+Content-Disposition: inline; filename="logo.png"
+Content-Id: <20190618133700.1234-1tru1p8-16@blackmail>
+Content-Transfer-Encoding: base64
+Content-Type: image/png; name="logo.png"
+
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAgMAAAAOFJJnAAAACVBMVEUAAGf/AAD///8pCBZ1AAAA
+AXRSTlMAQObYZgAAAAFiS0dEAIgFHUgAAAAJcEhZcwAALiMAAC4jAXilP3YAAAA7SURBVBjTtcqx
+DcAgAMAwxMgp3FOezJWVqvoEMmXwOOcZX/fmb5pltgkxy2xTSEhISEhISEhISEhISC8VAS0v6HWw
+pgAAAABJRU5ErkJggg==
+
+--XXX222--
+
+--XXX--

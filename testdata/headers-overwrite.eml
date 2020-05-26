@@ -1,0 +1,10 @@
+From: <me@example.com>
+To: <to@to.to>
+Message-Id: ID
+Date: Tue, 18 Jun 2019 13:37:00 +0000
+Subject: Customer headers overwrite
+Header: value
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Hello=3Dthere

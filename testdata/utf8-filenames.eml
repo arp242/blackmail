@@ -1,0 +1,46 @@
+From: <me@example.com>
+To: <to@to.to>
+Message-Id: <blackmail-20190618133700.1234-16@example.com>
+Date: Tue, 18 Jun 2019 13:37:00 +0000
+Subject: Unicode attachment
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="XXX"
+
+--XXX
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8
+
+Look at my images!
+--XXX
+Content-Disposition: attachment; filename*=utf-8''%E2%82%AC.png
+Content-Id: <20190618133700.1234-1tru1p8-16@blackmail>
+Content-Transfer-Encoding: base64
+Content-Type: image/png; name="=?utf-8?q?=E2=82=AC.png?="
+
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAgMAAAAOFJJnAAAACVBMVEUAAGf/AAD///8pCBZ1AAAA
+AXRSTlMAQObYZgAAAAFiS0dEAIgFHUgAAAAJcEhZcwAALiMAAC4jAXilP3YAAAA7SURBVBjTtcqx
+DcAgAMAwxMgp3FOezJWVqvoEMmXwOOcZX/fmb5pltgkxy2xTSEhISEhISEhISEhISC8VAS0v6HWw
+pgAAAABJRU5ErkJggg==
+
+--XXX
+Content-Disposition: attachment; filename*=utf-8''%E2%82%AC%20%22.jpeg
+Content-Id: <20190618133700.1234-1ifd953-16@blackmail>
+Content-Transfer-Encoding: base64
+Content-Type: image/jpeg; name="=?utf-8?q?=E2=82=AC_".jpeg?="
+
+/9j/4AAQSkZJRgABAQEBLAEsAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsK
+CwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQU
+FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAgACADAREA
+AhEBAxEB/8QAGAABAQEBAQAAAAAAAAAAAAAAAAcJBQj/xAAfEAEAAQQDAQEBAAAAAAAAAAABAgMF
+BhEABAgSEyH/xAAZAQEBAQEBAQAAAAAAAAAAAAAABwUICQP/xAAlEQABAwMDAwUAAAAAAAAAAAAB
+AAIRAwQFBhIhMUHBIlFhkbH/2gAMAwEAAhEDEQA/APOnIYvVNOEThE4ROEThE4RXDy/5fvHoXI2r
+Va1rw7oVAuN1jE+py0P4UNmpVURXSQElLawjPbxmMfkHyeGDqfA+fz6Bl+udc2ukLXa2H3Lx6Ge3
+be+OQ0HoOC8iBEOc2H8xFUE4RXDy/wCX7x6FyNq1Wta8O6FQLjdYxPqctD+FDZqVVEV0kBJS2sIz
+28ZjH5B8nhg6nwPn8+gZfrnXNrpC12th9y8ehnt23vjkNB6DgvIgRDnN1XxPE7PguOW+wWC30bXa
+OhTKXX6tAfmEd7VX+ykqrJVkqqqvKnSpMoMFOmIaFwZkMhdZW6qXt7UL6rzJJ7+AAOABAAAAAAAW
+HHIivUNXDy/5fvHoXI2rVa1rw7oVAuN1jE+py0P4UNmpVURXSQElLawjPbxmMfkHyeGDqfA+fz6B
+l+udc2ukLXa2H3Lx6Ge3be+OQ0HoOC8iBEOc3VfE8Ts+C45b7BYLfRtdo6FMpdfq0B+YR3tVf7KS
+qslWSqqq8qdKkygwU6YhoXBmQyF1lbqpe3tQvqvMknv4AA4AEAAAAAABdfn1Wev/2Q==
+
+--XXX--

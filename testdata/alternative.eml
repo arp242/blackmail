@@ -1,0 +1,20 @@
+From: <me@example.com>
+To: <to@to.to>
+Message-Id: <blackmail-20190618133700.1234-16@example.com>
+Date: Tue, 18 Jun 2019 13:37:00 +0000
+Subject: text and html
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="XXX"
+
+--XXX
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8
+
+<b>text</b> <
+--XXX
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset=utf-8
+
+<b>html</b> <
+--XXX--

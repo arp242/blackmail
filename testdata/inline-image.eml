@@ -1,0 +1,38 @@
+From: <me@example.com>
+To: <to@to.to>
+Message-Id: <blackmail-20190618133700.1234-16@example.com>
+Date: Tue, 18 Jun 2019 13:37:00 +0000
+Subject: Inline image
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="XXX"
+
+--XXX
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8
+
+Use HTML for images
+--XXX
+Content-Type: multipart/related;
+	boundary="XXX222"
+
+--XXX222
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset=utf-8
+
+Look at my image bro: <img src=3D"cid:20190618133700.1234-1tru1p8-16@blackm=
+ail"></a>
+--XXX222
+Content-Disposition: inline; filename="inline.png"
+Content-Id: <20190618133700.1234-1tru1p8-16@blackmail>
+Content-Transfer-Encoding: base64
+Content-Type: image/png; name="inline.png"
+
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgAgMAAAAOFJJnAAAACVBMVEUAAGf/AAD///8pCBZ1AAAA
+AXRSTlMAQObYZgAAAAFiS0dEAIgFHUgAAAAJcEhZcwAALiMAAC4jAXilP3YAAAA7SURBVBjTtcqx
+DcAgAMAwxMgp3FOezJWVqvoEMmXwOOcZX/fmb5pltgkxy2xTSEhISEhISEhISEhISC8VAS0v6HWw
+pgAAAABJRU5ErkJggg==
+
+--XXX222--
+
+--XXX--
