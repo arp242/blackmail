@@ -82,11 +82,11 @@ func Sign(pubkey, privkey []byte, parts ...bodyPart) bodyPart {
 	return bodyPart{ct: "multipart/signed", parts: parts, pubkey: pubkey, privkey: privkey}
 }
 
-// Address makes creating a mail.Address a bit more convenient.
+// From makes creating a mail.Address a bit more convenient.
 //
 //   mail.Address{Name: "foo, Address: "foo@example.com}
-//   blackmail.Address{"foo, "foo@example.com)
-func Address(name, address string) mail.Address {
+//   blackmail.From{"foo, "foo@example.com)
+func From(name, address string) mail.Address {
 	return mail.Address{Name: name, Address: address}
 }
 

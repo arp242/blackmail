@@ -21,57 +21,59 @@ func TestMessage(t *testing.T) {
 	}{
 		// A basic example; doesn't create a MIME message.
 		{"basic", func() ([]byte, []string) {
-			return Message("Basic test", Address("", "me@example.com"),
+			return Message("Basic test", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to"}},
 
 		// Add CC address.
 		{"cc", func() ([]byte, []string) {
-			return Message("Cc/Bcc", Address("", "me@example.com"),
+			return Message("Cc/Bcc", From("", "me@example.com"),
 				append(To("to@to.to"), Cc("cc@cc.occ", "asd@asd.qqq")...),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to", "cc@cc.occ", "asd@asd.qqq"}},
 
 		// Add names to the addresses.
 		{"names", func() ([]byte, []string) {
-			return Message("Names", Address("me", "me@example.com"),
-				append(ToAddress(Address("to", "to@to.to")), CcNames("cc", "cc@cc.occ", "cc2", "asd@asd.qqq")...),
+			to := mail.Address{Name: "to", Address: "to@to.to"}
+
+			return Message("Names", From("me", "me@example.com"),
+				append(ToAddress(to), CcNames("cc", "cc@cc.occ", "cc2", "asd@asd.qqq")...),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to", "cc@cc.occ", "asd@asd.qqq"}},
 
 		// Add Bcc: addresses; they don't show up in the message, but do in the
 		// return list of addresses for sending.
 		{"cc", func() ([]byte, []string) {
-			return Message("Cc/Bcc", Address("", "me@example.com"),
+			return Message("Cc/Bcc", From("", "me@example.com"),
 				append(To("to@to.to"), append(Cc("cc@cc.occ", "asd@asd.qqq"), Bcc("bcc@bcc.bcc", "x@x.x")...)...),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to", "cc@cc.occ", "asd@asd.qqq", "bcc@bcc.bcc", "x@x.x"}},
 
 		// Only Bcc: will set "To: undisclosed-recipients:;"
 		{"bcc", func() ([]byte, []string) {
-			return Message("Only Bcc", Address("", "me@example.com"),
+			return Message("Only Bcc", From("", "me@example.com"),
 				Bcc("bcc@bcc.bcc", "x@x.x"),
 				Bodyf("Newsletter"))
 		}, []string{"bcc@bcc.bcc", "x@x.x"}},
 
 		// Set your own headers.
 		{"headers", func() ([]byte, []string) {
-			return Message("Custom headers", Address("", "me@example.com"),
+			return Message("Custom headers", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"), Headers("Header", "value", "X-Mine", "qwe", "X-MINE", "2nd"))
 		}, []string{"to@to.to"}},
 
 		// Passed headers overwrite default ones.
 		{"headers-overwrite", func() ([]byte, []string) {
-			return Message("Customer headers overwrite", Address("", "me@example.com"),
+			return Message("Customer headers overwrite", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"), Headers("Header", "value", "MESSAGE-ID", "ID"))
 		}, []string{"to@to.to"}},
 
 		// multipart/alternative with a text and html variant.
 		{"alternative", func() ([]byte, []string) {
-			return Message("text and html", Address("", "me@example.com"),
+			return Message("text and html", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("<b>text</b> <")),
 				BodyHTML([]byte("<b>html</b> <")))
@@ -79,7 +81,7 @@ func TestMessage(t *testing.T) {
 
 		// Attachments.
 		{"attachment", func() ([]byte, []string) {
-			return Message("Attachment", Address("", "me@example.com"),
+			return Message("Attachment", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("Look at my images!")),
 				Attachment("image/png", "test.png", image.PNG),
@@ -88,7 +90,7 @@ func TestMessage(t *testing.T) {
 
 		// Attachments with unicode filenames.
 		{"utf8-filenames", func() ([]byte, []string) {
-			return Message("Unicode attachment", Address("", "me@example.com"),
+			return Message("Unicode attachment", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("Look at my images!")),
 				Attachment("image/png", "€.png", image.PNG),
@@ -97,7 +99,7 @@ func TestMessage(t *testing.T) {
 
 		// Inline images.
 		{"inline-image", func() ([]byte, []string) {
-			return Message("Inline image", Address("", "me@example.com"),
+			return Message("Inline image", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Use HTML for images"),
 				BodyHTML(
@@ -112,7 +114,7 @@ func TestMessage(t *testing.T) {
 		// - Sets In-Reply-To and List-Id
 		// - Adds a quoted previous part ← TODO: need to add API for this.
 		{"headers-autoreply", func() ([]byte, []string) {
-			return Message("Re: autoreply", Address("", "me@example.com"),
+			return Message("Re: autoreply", From("", "me@example.com"),
 				append(ToNames("Customer", "cust@example.com"), CcAddress(mail.Address{Address: "x@x.x"})...),
 				HeadersAutoreply(),
 				Headers("List-Id", "<foo>",
@@ -175,7 +177,7 @@ func TestMessage(t *testing.T) {
 func BenchmarkSimple(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
-		_, _ = Message("Hello!", Address("", "me@example.com"),
+		_, _ = Message("Hello!", From("", "me@example.com"),
 			To("to@to.to"),
 			BodyText([]byte("<b>text</b> <")))
 	}
@@ -184,7 +186,7 @@ func BenchmarkSimple(b *testing.B) {
 func BenchmarkMIME(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
-		_, _ = Message("Hello!", Address("", "me@example.com"),
+		_, _ = Message("Hello!", From("", "me@example.com"),
 			To("to@to.to"),
 			BodyText([]byte("<b>text</b> <")),
 			BodyHTML([]byte("<b>html</b> <")))

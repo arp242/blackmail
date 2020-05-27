@@ -18,9 +18,10 @@ There is a small commandline utility at `cmd/blackmail`; try it with `go run
 ./cmd/blackmail`.
 
 The main use case where you just want to send off an email and be done with it.
-Non-goals include things like parsing email messages or a one-stop-shop for your
-very specific complex requirements. It should be able to handle all common (and
-not-so-common) use cases though.
+Non-goals include things like parsing email messages, support for encodings
+other than ASCII and UTF-8, or a one-stop-shop for your very specific complex
+requirements. It should be able to handle all common (and not-so-common) use
+cases though.
 
 [godoc]: https://pkg.go.dev/zgo.at/blackmail
 [sign]: https://www.arp242.net/signing-emails.html
@@ -32,13 +33,13 @@ Example
 ```go
 // Send a new message using blackmail.DefaultMailer
 err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
-    blackmail.Address("", "blackmail@example.com"),
+    blackmail.From("", "blackmail@example.com"),
     blackmail.To("Name", "victim@example.com"),
     blackmail.Bodyf("I can haz ur bitcoinz?"))
 
 // A more complex message with a text and HTML part and inline image.
 err = blackmail.Send("I saw what you did last night 😏",
-    blackmail.Address("😏", "blackmail@example.com"),
+    blackmail.From("😏", "blackmail@example.com"),
     append(blackmail.To("Name", "victim@example.com"), blackmail.Cc("Other", "other@example.com")...),
     blackmail.Text("Text part")
     blackmail.HTML("HTML part: <img src="cid:blackmail:1">",
@@ -71,7 +72,7 @@ priv, pub, err := blackmail.SignCreateKeys()
 //priv, pub, err := blackmail.SignKeys("test.priv", "test.pub")
 
 err := blackmail.Send("Subject!",
-    blackmail.Address("My name", "myemail@example.com"),
+    blackmail.From("My name", "myemail@example.com"),
     blackmail.To("Name", "addr"),
     blackmail.Bodyf("Well, hello there!"),
     blackmail.Sign(priv, pub)

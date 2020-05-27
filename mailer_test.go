@@ -16,7 +16,7 @@ func TestMailerStdout(t *testing.T) {
 	m := NewMailer(ConnectWriter, MailerOut(buf))
 
 	err := m.Send("Subject!",
-		Address("My name", "myemail@example.com"),
+		From("My name", "myemail@example.com"),
 		To("Name", "addr"),
 		Bodyf("Well, hello there!"))
 	if err != nil {
