@@ -20,7 +20,11 @@ func warn(opt string, s sender) {
 type senderWriter struct{ w io.Writer }
 
 func (s senderWriter) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
-	msg, _ := message(subject, from, rcpt, firstPart, parts...)
+	msg, _, err := message(subject, from, rcpt, firstPart, parts...)
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprint(s.w, string(msg))
 	return nil
 }

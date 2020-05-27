@@ -2,6 +2,9 @@ package blackmail
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
+	"html/template"
 	"io/ioutil"
 	"net/mail"
 	"reflect"
@@ -16,25 +19,25 @@ import (
 func TestMessage(t *testing.T) {
 	tests := []struct {
 		file string
-		in   func() ([]byte, []string)
+		in   func() ([]byte, []string, error)
 		to   []string
 	}{
 		// A basic example; doesn't create a MIME message.
-		{"basic", func() ([]byte, []string) {
+		{"basic", func() ([]byte, []string, error) {
 			return Message("Basic test", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to"}},
 
 		// Add CC address.
-		{"cc", func() ([]byte, []string) {
+		{"cc", func() ([]byte, []string, error) {
 			return Message("Cc/Bcc", From("", "me@example.com"),
 				append(To("to@to.to"), Cc("cc@cc.occ", "asd@asd.qqq")...),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to", "cc@cc.occ", "asd@asd.qqq"}},
 
 		// Add names to the addresses.
-		{"names", func() ([]byte, []string) {
+		{"names", func() ([]byte, []string, error) {
 			to := mail.Address{Name: "to", Address: "to@to.to"}
 
 			return Message("Names", From("me", "me@example.com"),
@@ -44,35 +47,35 @@ func TestMessage(t *testing.T) {
 
 		// Add Bcc: addresses; they don't show up in the message, but do in the
 		// return list of addresses for sending.
-		{"cc", func() ([]byte, []string) {
+		{"cc", func() ([]byte, []string, error) {
 			return Message("Cc/Bcc", From("", "me@example.com"),
 				append(To("to@to.to"), append(Cc("cc@cc.occ", "asd@asd.qqq"), Bcc("bcc@bcc.bcc", "x@x.x")...)...),
 				Bodyf("Hello=there"))
 		}, []string{"to@to.to", "cc@cc.occ", "asd@asd.qqq", "bcc@bcc.bcc", "x@x.x"}},
 
 		// Only Bcc: will set "To: undisclosed-recipients:;"
-		{"bcc", func() ([]byte, []string) {
+		{"bcc", func() ([]byte, []string, error) {
 			return Message("Only Bcc", From("", "me@example.com"),
 				Bcc("bcc@bcc.bcc", "x@x.x"),
 				Bodyf("Newsletter"))
 		}, []string{"bcc@bcc.bcc", "x@x.x"}},
 
 		// Set your own headers.
-		{"headers", func() ([]byte, []string) {
+		{"headers", func() ([]byte, []string, error) {
 			return Message("Custom headers", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"), Headers("Header", "value", "X-Mine", "qwe", "X-MINE", "2nd"))
 		}, []string{"to@to.to"}},
 
 		// Passed headers overwrite default ones.
-		{"headers-overwrite", func() ([]byte, []string) {
+		{"headers-overwrite", func() ([]byte, []string, error) {
 			return Message("Customer headers overwrite", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Hello=there"), Headers("Header", "value", "MESSAGE-ID", "ID"))
 		}, []string{"to@to.to"}},
 
 		// multipart/alternative with a text and html variant.
-		{"alternative", func() ([]byte, []string) {
+		{"alternative", func() ([]byte, []string, error) {
 			return Message("text and html", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("<b>text</b> <")),
@@ -80,7 +83,7 @@ func TestMessage(t *testing.T) {
 		}, []string{"to@to.to"}},
 
 		// Attachments.
-		{"attachment", func() ([]byte, []string) {
+		{"attachment", func() ([]byte, []string, error) {
 			return Message("Attachment", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("Look at my images!")),
@@ -89,7 +92,7 @@ func TestMessage(t *testing.T) {
 		}, []string{"to@to.to"}},
 
 		// Attachments with unicode filenames.
-		{"utf8-filenames", func() ([]byte, []string) {
+		{"utf8-filenames", func() ([]byte, []string, error) {
 			return Message("Unicode attachment", From("", "me@example.com"),
 				To("to@to.to"),
 				BodyText([]byte("Look at my images!")),
@@ -98,7 +101,7 @@ func TestMessage(t *testing.T) {
 		}, []string{"to@to.to"}},
 
 		// Inline images.
-		{"inline-image", func() ([]byte, []string) {
+		{"inline-image", func() ([]byte, []string, error) {
 			return Message("Inline image", From("", "me@example.com"),
 				To("to@to.to"),
 				Bodyf("Use HTML for images"),
@@ -107,13 +110,29 @@ func TestMessage(t *testing.T) {
 					InlineImage("image/png", "inline.png", image.PNG)))
 		}, []string{"to@to.to"}},
 
+		// Load from template.
+		{"template", func() ([]byte, []string, error) {
+			tpl := template.Must(template.New("email").Parse("Hello {{.Name}}"))
+			helper := func(tplname string, args interface{}) func() ([]byte, error) {
+				return func() ([]byte, error) {
+					buf := new(bytes.Buffer)
+					err := tpl.ExecuteTemplate(buf, tplname, args)
+					return buf.Bytes(), err
+				}
+			}
+
+			return Message("From template", From("", "me@example.com"),
+				To("to@to.to"),
+				BodyMustText(helper("email", struct{ Name string }{"Martin"})))
+		}, []string{"to@to.to"}},
+
 		// A somewhat complicated "autoresponder" message which:
 		//
 		// - Sets header to indicate this is an autoreply.
 		// - Adds a HTML part with an inline image.
 		// - Sets In-Reply-To and List-Id
 		// - Adds a quoted previous part ← TODO: need to add API for this.
-		{"headers-autoreply", func() ([]byte, []string) {
+		{"headers-autoreply", func() ([]byte, []string, error) {
 			return Message("Re: autoreply", From("", "me@example.com"),
 				append(ToNames("Customer", "cust@example.com"), CcAddress(mail.Address{Address: "x@x.x"})...),
 				HeadersAutoreply(),
@@ -126,7 +145,7 @@ func TestMessage(t *testing.T) {
 		}, []string{"cust@example.com", "x@x.x"}},
 
 		// Sign a message.
-		// {"sign", func() ([]byte, []string) {
+		// {"sign", func() ([]byte, []string, error) {
 		// 	pub, priv, err := SignKeys("./testdata/test.pub", "./testdata/test.priv")
 		// 	if err != nil {
 		// 		t.Fatal(err)
@@ -137,7 +156,7 @@ func TestMessage(t *testing.T) {
 		// }, []string{"to@to.to"}},
 
 		// Create keys and sign a message with it/
-		// {"sign-create", func() ([]byte, []string) {
+		// {"sign-create", func() ([]byte, []string, error) {
 		// 	pub, priv, err := SignCreateKeys()
 		// 	if err != nil {
 		// 		t.Fatal(err)
@@ -156,13 +175,16 @@ func TestMessage(t *testing.T) {
 		t.Run(tt.file, func(t *testing.T) {
 			f, err := ioutil.ReadFile("testdata/" + tt.file + ".eml")
 			if err != nil {
-				m, _ := tt.in()
+				m, _, _ := tt.in()
 				t.Log("\n" + string(m)) // So we can copy/paste when writing new tests.
 				t.Fatalf("read testdata/%s: %s.eml", tt.file, err)
 			}
 
 			want := string(f)
-			msg, to := tt.in()
+			msg, to, err := tt.in()
+			if err != nil {
+				t.Fatalf("Message() error: %s", err)
+			}
 			out := string(msg)
 			if d := ztest.Diff(out, want); d != "" {
 				t.Error(strings.ReplaceAll(d, "\r", "\\r"))
@@ -174,10 +196,40 @@ func TestMessage(t *testing.T) {
 	}
 }
 
+func TestMessageError(t *testing.T) {
+	tests := []struct {
+		wantErr string
+		in      func() ([]byte, []string, error)
+	}{
+		{"blackmail.Message part 1: oh noes!", func() ([]byte, []string, error) {
+			return Message("From template", From("", "me@example.com"),
+				To("to@to.to"),
+				BodyMustText(func() ([]byte, error) {
+					return nil, errors.New("oh noes!")
+				}))
+		}},
+
+		{"blackmail.Headers: odd argument count", func() ([]byte, []string, error) {
+			return Message("From template", From("", "me@example.com"),
+				To("to@to.to"),
+				Headers(""))
+		}},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			_, _, err := tt.in()
+			if !ztest.ErrorContains(err, tt.wantErr) {
+				t.Errorf("wrong error:\ngot:  %s\nwant: %s", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func BenchmarkSimple(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
-		_, _ = Message("Hello!", From("", "me@example.com"),
+		_, _, _ = Message("Hello!", From("", "me@example.com"),
 			To("to@to.to"),
 			BodyText([]byte("<b>text</b> <")))
 	}
@@ -186,7 +238,7 @@ func BenchmarkSimple(b *testing.B) {
 func BenchmarkMIME(b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
-		_, _ = Message("Hello!", From("", "me@example.com"),
+		_, _, _ = Message("Hello!", From("", "me@example.com"),
 			To("to@to.to"),
 			BodyText([]byte("<b>text</b> <")),
 			BodyHTML([]byte("<b>html</b> <")))

@@ -4,6 +4,7 @@ package blackmail
 // This file contains the public API to create messages.
 
 import (
+	"errors"
 	"fmt"
 	"net/mail"
 )
@@ -31,6 +32,56 @@ func BodyHTML(body []byte, images ...bodyPart) bodyPart {
 		ct:    "multipart/related",
 		parts: append([]bodyPart{Body("text/html", body)}, images...),
 	}
+}
+
+// BodyMust sets the body using a callback, propagating any errors back up.
+//
+// This is useful when using Go templates for the mail body;
+//
+//    buf := new(bytes.Buffer)
+//    err := tpl.ExecuteTemplate(buf, "email", struct{
+//        Name string
+//    }{"Martin"})
+//    if err != nil {
+//        log.Fatal(err)
+//    }
+//
+//    err := Send("Basic test", From("", "me@example.com"),
+//        To("to@to.to"),
+//        Body("text/plain", buf.Bytes()))
+//
+// With BodyMust(), it's simpler; you just need to define a little helper
+// re-usable helper function and call that:
+//
+//    func template(tplname string, args interface{}) func() ([]byte, error) {
+//        return func() ([]byte, error) {
+//            buf := new(bytes.Buffer)
+//            err := tpl.ExecuteTemplate(buf, tplname, args)
+//            return buf.Bytes(), err
+//        }
+//    }
+//
+//    err := Send("Basic test", From("", "me@example.com"),
+//        To("to@to.to"),
+//        BodyMust("text/html", template("email", struct {
+//            Name string
+//        }{"Martin"})))
+//
+// Other use cases include things like loading data from a file, reading from a
+// stream, etc.
+func BodyMust(contentType string, fn func() ([]byte, error)) bodyPart {
+	body, err := fn()
+	return bodyPart{ct: contentType, err: err, body: body}
+}
+
+// BodyMustText is like BodyMust() with contentType text/plain.
+func BodyMustText(fn func() ([]byte, error)) bodyPart {
+	return BodyMust("text/plain", fn)
+}
+
+// BodyMustHTML is like BodyMust() with contentType text/html.
+func BodyMustHTML(fn func() ([]byte, error)) bodyPart {
+	return BodyMust("text/html", fn)
 }
 
 // Attachment returns a new attachment part with the given Content-Type.
@@ -63,7 +114,7 @@ func InlineImage(contentType, filename string, body []byte) bodyPart {
 //       "Message-Id", "<my-message-id@example.com>")
 func Headers(keyValue ...string) bodyPart {
 	if len(keyValue)%2 == 1 {
-		panic("blackmail.Headers: odd argument count")
+		return bodyPart{err: errors.New("blackmail.Headers: odd argument count")}
 	}
 	return bodyPart{ct: "HEADERS", headers: keyValue}
 }
@@ -123,6 +174,6 @@ func BccNames(nameAddr ...string) []recipient { return rcptNames("bcc", nameAddr
 //        blackmail.Bodyf("I can haz ur bitcoinz?"))
 
 // Message formats a message.
-func Message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string) {
+func Message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string, error) {
 	return message(subject, from, rcpt, firstPart, parts...)
 }

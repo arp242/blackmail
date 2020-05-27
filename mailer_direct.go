@@ -25,7 +25,10 @@ var hostname sync.Once
 func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
 	panic("WIP")
 
-	msg, to := message(subject, from, rcpt, firstPart, parts...)
+	msg, to, err := message(subject, from, rcpt, firstPart, parts...)
+	if err != nil {
+		return err
+	}
 
 	hello := "localhost"
 	var hostErr error

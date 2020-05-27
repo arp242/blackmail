@@ -60,8 +60,15 @@ var (
 	}
 )
 
-func message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string) {
+func message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string, error) {
 	parts = append([]bodyPart{firstPart}, parts...)
+
+	// Propegate any errors from the parts.
+	for i, p := range parts {
+		if p.err != nil {
+			return nil, nil, fmt.Errorf("blackmail.Message part %d: %w", i+1, p.err)
+		}
+	}
 
 	// Get the extra headers out of the parts.
 	var userHeaders []string
@@ -104,7 +111,7 @@ func message(subject string, from mail.Address, rcpt []recipient, firstPart body
 			case "bcc":
 				bcc = append(bcc, r.Address)
 			default:
-				panic(fmt.Sprintf("blackmail.Message: unknown recipient type: %q", r.kind))
+				return nil, nil, fmt.Errorf("blackmail.Message: unknown recipient type: %q", r.kind)
 			}
 		}
 
@@ -149,7 +156,7 @@ func message(subject string, from mail.Address, rcpt []recipient, firstPart body
 		bw.Write(p.body)
 		bw.Close()
 
-		return msg.Bytes(), toList
+		return msg.Bytes(), toList, nil
 	}
 
 	// Figure out the correct/best multipart/ format.
@@ -174,7 +181,7 @@ func message(subject string, from mail.Address, rcpt []recipient, firstPart body
 	w := multipart.NewWriter(msg)
 	if testBoundary != "" {
 		if err := w.SetBoundary(testBoundary); err != nil {
-			panic(err)
+			return nil, nil, fmt.Errorf("blackmail.Message: %w", err)
 		}
 	}
 
@@ -192,14 +199,14 @@ func message(subject string, from mail.Address, rcpt []recipient, firstPart body
 
 			sig, err := signMessage(toSign, s.part.pubkey, s.part.privkey)
 			if err != nil {
-				panic(err)
+				return nil, nil, fmt.Errorf("blackmail.Message: %w", err)
 			}
 
 			out = bytes.ReplaceAll(out, []byte(s.repl), sig)
 		}
 	}
 
-	return out, toList
+	return out, toList, nil
 }
 
 type signInfo struct {
@@ -246,7 +253,7 @@ func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string)
 
 			w2 := multipart.NewWriter(part)
 			if err := w2.SetBoundary(b); err != nil {
-				panic(err)
+				panic(err) // TODO: return error?
 			}
 
 			si = append(si, bodyMIME(part, w2, p.parts, from)...)
@@ -302,7 +309,7 @@ func randomBoundary() string {
 	var buf [30]byte
 	_, err := io.ReadFull(rand.Reader, buf[:])
 	if err != nil {
-		panic(err)
+		panic(err) // Should never fail.
 	}
 	return fmt.Sprintf("%x", buf[:])
 }
@@ -364,6 +371,8 @@ func rcptAddress(kind string, addr ...mail.Address) []recipient {
 
 func rcptNames(kind string, nameAddr ...string) []recipient {
 	if len(nameAddr)%2 == 1 {
+		// would be better to return error, but this would make the API more
+		// awkward. This is probably okay.
 		panic(fmt.Sprintf("blackmail.rcptNames for %q: odd argument count", kind))
 	}
 

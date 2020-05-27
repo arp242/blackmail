@@ -90,15 +90,9 @@ Questions you may have
 
 ### Is this package stable?
 
-Not quite; I might tweak the API a bit in the future. In particular, right now
-it panics() on most errors in `Message()`. This is mostly okay since those kind
-of errors *Should Never Happen™*, but it would be nicer if they're propagated
-back up and Message() returns an error.
-
-I'm also not 100% satisfied with how passing options to the `Mailer` works, and
-this *may* get a backwards incompatible change.
-
-I'll probably also change some of the smtp package.
+Not quite; I might tweak the API a bit. For example I'm not 100% with how
+passing options to the `Mailer` works, and this *may* get a backwards
+incompatible change. I'll probably also change some of the smtp package.
 
 ### Regular users will never understand all this OpenPGP signing stuff!
 

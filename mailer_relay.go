@@ -48,7 +48,10 @@ func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, f
 		s.mu.Unlock()
 	}
 
-	msg, to := message(subject, from, rcpt, firstPart, parts...)
+	msg, to, err := message(subject, from, rcpt, firstPart, parts...)
+	if err != nil {
+		return err
+	}
 
 	var auth smtp.Auth
 	if s.user != "" {
@@ -66,7 +69,7 @@ func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, f
 
 	// TODO: use requireTLS
 	// TODO: use tls
-	err := smtp.SendMail(s.host, auth, from.Address, to, bytes.NewReader(msg))
+	err = smtp.SendMail(s.host, auth, from.Address, to, bytes.NewReader(msg))
 	if err != nil {
 		return fmt.Errorf("senderRelay.send: %w", err)
 	}
