@@ -60,7 +60,9 @@ var (
 	}
 )
 
-func message(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) ([]byte, []string) {
+func message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string) {
+	parts = append([]bodyPart{firstPart}, parts...)
+
 	// Get the extra headers out of the parts.
 	var userHeaders []string
 	{

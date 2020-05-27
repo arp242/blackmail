@@ -31,7 +31,7 @@ type senderRelay struct {
 	host, user, pw string
 }
 
-func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error {
+func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
 	if s.host == "" {
 		srv, err := url.Parse(s.smtp)
 		if err != nil {
@@ -48,7 +48,7 @@ func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, p
 		s.mu.Unlock()
 	}
 
-	msg, to := message(subject, from, rcpt, parts...)
+	msg, to := message(subject, from, rcpt, firstPart, parts...)
 
 	var auth smtp.Auth
 	if s.user != "" {

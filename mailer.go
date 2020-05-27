@@ -132,13 +132,13 @@ func NewMailer(smtp string, opts ...senderOpt) Mailer {
 // Send an email.
 //
 // The arguments are identical to Message().
-func (m Mailer) Send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error {
-	return m.sender.send(subject, from, rcpt, parts...)
+func (m Mailer) Send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
+	return m.sender.send(subject, from, rcpt, firstPart, parts...)
 }
 
 // Send an email using the DefaultMailer.
 //
 // The arguments are identical to Message().
-func Send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error {
-	return DefaultMailer.Send(subject, from, rcpt, parts...)
+func Send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
+	return DefaultMailer.Send(subject, from, rcpt, firstPart, parts...)
 }

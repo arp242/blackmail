@@ -22,10 +22,10 @@ var hostname sync.Once
 
 // TODO: use requireStartTLS
 // TODO: use tls
-func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error {
+func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
 	panic("WIP")
 
-	msg, to := message(subject, from, rcpt, parts...)
+	msg, to := message(subject, from, rcpt, firstPart, parts...)
 
 	hello := "localhost"
 	var hostErr error

@@ -8,7 +8,7 @@ import (
 
 type (
 	sender interface {
-		send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error
+		send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error
 	}
 	senderOpt func(sender)
 )
@@ -19,8 +19,8 @@ func warn(opt string, s sender) {
 
 type senderWriter struct{ w io.Writer }
 
-func (s senderWriter) send(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) error {
-	msg, _ := message(subject, from, rcpt, parts...)
+func (s senderWriter) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
+	msg, _ := message(subject, from, rcpt, firstPart, parts...)
 	fmt.Fprint(s.w, string(msg))
 	return nil
 }

@@ -123,6 +123,6 @@ func BccNames(nameAddr ...string) []recipient { return rcptNames("bcc", nameAddr
 //        blackmail.Bodyf("I can haz ur bitcoinz?"))
 
 // Message formats a message.
-func Message(subject string, from mail.Address, rcpt []recipient, parts ...bodyPart) ([]byte, []string) {
-	return message(subject, from, rcpt, parts...)
+func Message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string) {
+	return message(subject, from, rcpt, firstPart, parts...)
 }
