@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/mail"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -13,19 +14,86 @@ import (
 	"zgo.at/blackmail/smtp"
 )
 
-type senderDirect struct {
+type mailerSMTP struct {
+	mu *sync.Mutex
+
+	relay      string
+	auth       string
 	tls        *tls.Config
 	requireTLS bool
+
+	// Cached
+	host, user, pw string
+}
+
+func (m mailerSMTP) Send(subject string, from mail.Address, parts ...Part) error {
+	if m.relay != "" {
+		err := m.sendRelay(subject, from, parts...)
+		if err != nil {
+			return fmt.Errorf("blackmail.mailerSMTP: %w", err)
+		}
+		return nil
+	}
+	err := m.sendDirect(subject, from, parts...)
+	if err != nil {
+		return fmt.Errorf("blackmail.mailerSMTP: %w", err)
+	}
+	return nil
+}
+
+func (m mailerSMTP) sendRelay(subject string, from mail.Address, parts ...Part) error {
+	if m.host == "" {
+		srv, err := url.Parse(m.relay)
+		if err != nil {
+			return err
+		}
+		if srv.Host == "" {
+			return errors.New("sendRelay: relay host empty")
+		}
+
+		m.mu.Lock()
+		m.user = srv.User.Username()
+		m.pw, _ = srv.User.Password()
+		m.host = srv.Host // TODO: add port if not given.
+		m.mu.Unlock()
+	}
+
+	msg, to, err := message(subject, from, parts...)
+	if err != nil {
+		return err
+	}
+
+	var auth smtp.Auth
+	if m.user != "" {
+		switch m.auth {
+		case "":
+		case AuthPlain:
+			auth = smtp.PlainAuth("", m.user, m.pw)
+		case AuthLogin:
+			auth = smtp.LoginAuth(m.user, m.pw)
+		case AuthCramMD5:
+			auth = smtp.CramMD5Auth(m.user, m.pw)
+		default:
+			return fmt.Errorf("sendRelay: unknown auth option: %q", m.auth)
+		}
+	}
+
+	err = smtp.Send(m.host, from.Address, to, msg,
+		smtp.SendAuth(auth), smtp.SendTLS(m.tls), smtp.SendRequireTLS(m.requireTLS))
+	if err != nil {
+		return fmt.Errorf("senderRelay: send: %w", err)
+	}
+	return nil
 }
 
 var hostname sync.Once
 
 // TODO: use requireStartTLS
 // TODO: use tls
-func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
+func (s mailerSMTP) sendDirect(subject string, from mail.Address, parts ...Part) error {
 	panic("WIP")
 
-	msg, to, err := message(subject, from, rcpt, firstPart, parts...)
+	msg, to, err := message(subject, from, parts...)
 	if err != nil {
 		return err
 	}
@@ -55,7 +123,7 @@ func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, 
 			for _, h := range s.getMX(domain) {
 				err := s.mail(h, hello, from.Address, t, msg)
 				if err != nil {
-					var softErr *SoftError
+					var softErr *softError
 					if errors.As(err, &softErr) {
 						continue
 					}
@@ -69,7 +137,7 @@ func (s senderDirect) send(subject string, from mail.Address, rcpt []recipient, 
 	return nil
 }
 
-func (s senderDirect) mail(host, hello, from string, to []string, msg []byte) error {
+func (s mailerSMTP) mail(host, hello, from string, to []string, msg []byte) error {
 	c, err := smtp.Dial(host + ":25")
 	if err != nil {
 		// Blocked as spam is a fatal errorr; don't try again.
@@ -81,7 +149,7 @@ func (s senderDirect) mail(host, hello, from string, to []string, msg []byte) er
 		}
 
 		// Can't connect: try next MX
-		return SoftError{err}
+		return softError{err}
 	}
 	defer c.Close()
 
@@ -104,7 +172,7 @@ func (s senderDirect) mail(host, hello, from string, to []string, msg []byte) er
 		}
 	}
 
-	err = c.Mail(from, nil)
+	err = c.Mail(from, nil) // TODO: Add opt.
 	if err != nil {
 		return err
 	}
@@ -139,7 +207,7 @@ func (s senderDirect) mail(host, hello, from string, to []string, msg []byte) er
 }
 
 // TODO: cache for same domains.
-func (s senderDirect) getMX(domain string) []string {
+func (s mailerSMTP) getMX(domain string) []string {
 	mxs, err := net.LookupMX(domain)
 	if err != nil {
 		return []string{domain}
@@ -152,7 +220,7 @@ func (s senderDirect) getMX(domain string) []string {
 	return hosts
 }
 
-type SoftError struct{ err error }
+type softError struct{ err error }
 
-func (f SoftError) Error() string { return f.err.Error() }
-func (f SoftError) Unwrap() error { return f.err }
+func (f softError) Error() string { return f.err.Error() }
+func (f softError) Unwrap() error { return f.err }

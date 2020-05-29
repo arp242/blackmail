@@ -18,8 +18,8 @@ func TestPlainAuth(t *testing.T) {
 		t.Error("Invalid mechanism name:", mech)
 	}
 
-	expected := []byte{105, 100, 101, 110, 116, 105, 116, 121, 0, 117, 115, 101, 114, 110, 97, 109, 101, 0, 112, 97, 115, 115, 119, 111, 114, 100}
-	if !bytes.Equal(ir, expected) {
+	want := []byte{105, 100, 101, 110, 116, 105, 116, 121, 0, 117, 115, 101, 114, 110, 97, 109, 101, 0, 112, 97, 115, 115, 119, 111, 114, 100}
+	if !bytes.Equal(ir, want) {
 		t.Error("Invalid initial response:", ir)
 	}
 }
@@ -35,22 +35,22 @@ func TestLoginAuth(t *testing.T) {
 		t.Error("Invalid mechanism name:", mech)
 	}
 
-	expected := []byte{117, 115, 101, 114, 110, 97, 109, 101}
-	if !bytes.Equal(resp, expected) {
+	want := []byte{117, 115, 101, 114, 110, 97, 109, 101}
+	if !bytes.Equal(resp, want) {
 		t.Error("Invalid initial response:", resp)
 	}
 
-	_, err = c.Next(expected)
+	_, err = c.Next(want)
 	if err != smtp.ErrUnexpectedServerChallenge {
 		t.Error("Invalid chalange")
 	}
 
-	expected = []byte("Password:")
-	resp, err = c.Next(expected)
+	want = []byte("Password:")
+	resp, err = c.Next(want)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(resp, expected) {
+	if !bytes.Equal(resp, want) {
 		t.Error("Invalid initial response:", resp)
 	}
 }

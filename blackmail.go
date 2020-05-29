@@ -1,40 +1,58 @@
 // Package blackmail sends emails.
 package blackmail
 
-// This file contains the public API to create messages.
-
 import (
-	"errors"
 	"fmt"
 	"net/mail"
 )
 
-// Body returns a new part with the given Content-Type.
-func Body(contentType string, body []byte) bodyPart {
-	return bodyPart{ct: contentType, body: body}
+// Part is a part of a message, which can be a body part, attachment, recipient,
+// or header.
+type Part interface {
+	Error() error
+
+	// Unexported method, so this is a "private" interface which can't be
+	// implemented by other packages.
+	blackmail()
 }
 
-// Bodyf returns a new text/plain part.
-func Bodyf(s string, args ...interface{}) bodyPart {
-	return BodyText([]byte(fmt.Sprintf(s, args...)))
+// Parts is a list of parts.
+type Parts []Part
+
+// func (Parts) blackmail() {}
+
+// Body returns a new body part with the given Content-Type.
+func Body(contentType string, body string) BodyPart {
+	return BodyPart{ct: contentType, body: []byte(body)}
+}
+
+// Bodyf returns a new body part with the given Content-Type.
+func Bodyf(contentType, s string, args ...interface{}) BodyPart {
+	return BodyText(fmt.Sprintf(s, args...))
 }
 
 // BodyText returns a new text/plain part.
-func BodyText(body []byte) bodyPart { return Body("text/plain", body) }
+func BodyText(body string) BodyPart { return Body("text/plain", body) }
+
+// BodyTextf returns a new text/plain part.
+func BodyTextf(body string, args ...interface{}) BodyPart {
+	return BodyText(fmt.Sprintf(body, args...))
+}
 
 // BodyHTML returns a new text/html part.
-func BodyHTML(body []byte, images ...bodyPart) bodyPart {
+//
+// images can be a list of body parts to be used as multipart/related images.
+func BodyHTML(body string, images ...BodyPart) BodyPart {
 	if len(images) == 0 {
 		return Body("text/html", body)
 	}
-
-	return bodyPart{
+	return BodyPart{
 		ct:    "multipart/related",
-		parts: append([]bodyPart{Body("text/html", body)}, images...),
+		parts: append([]BodyPart{Body("text/html", body)}, images...),
 	}
 }
 
-// BodyMust sets the body using a callback, propagating any errors back up.
+// BodyFunc sets the body using a callback, propagating any errors back up.
 //
 // This is useful when using Go templates for the mail body;
 //
@@ -50,7 +68,7 @@ func BodyHTML(body []byte, images ...bodyPart) bodyPart {
 //        To("to@to.to"),
 //        Body("text/plain", buf.Bytes()))
 //
-// With BodyMust(), it's simpler; you just need to define a little helper
+// With BodyFunc(), it's simpler; you just need to define a little helper
 // re-usable helper function and call that:
 //
 //    func template(tplname string, args interface{}) func() ([]byte, error) {
@@ -63,46 +81,46 @@ func BodyHTML(body []byte, images ...bodyPart) bodyPart {
 //
 //    err := Send("Basic test", From("", "me@example.com"),
 //        To("to@to.to"),
-//        BodyMust("text/html", template("email", struct {
+//        BodyFunc("text/html", template("email", struct {
 //            Name string
 //        }{"Martin"})))
 //
 // Other use cases include things like loading data from a file, reading from a
 // stream, etc.
-func BodyMust(contentType string, fn func() ([]byte, error)) bodyPart {
+func BodyFunc(contentType string, fn func() (string, error)) BodyPart {
 	body, err := fn()
-	return bodyPart{ct: contentType, err: err, body: body}
+	return BodyPart{ct: contentType, err: err, body: []byte(body)}
 }
 
-// BodyMustText is like BodyMust() with contentType text/plain.
-func BodyMustText(fn func() ([]byte, error)) bodyPart {
-	return BodyMust("text/plain", fn)
+// BodyFuncText is like BodyFunc() with contentType text/plain.
+func BodyFuncText(fn func() (string, error)) BodyPart {
+	return BodyFunc("text/plain", fn)
 }
 
-// BodyMustHTML is like BodyMust() with contentType text/html.
-func BodyMustHTML(fn func() ([]byte, error)) bodyPart {
-	return BodyMust("text/html", fn)
+// BodyFuncHTML is like BodyFunc() with contentType text/html.
+func BodyFuncHTML(fn func() (string, error)) BodyPart {
+	return BodyFunc("text/html", fn)
 }
 
 // Attachment returns a new attachment part with the given Content-Type.
 //
 // It will try to guess the Content-Type if empty.
-func Attachment(contentType, filename string, body []byte) bodyPart {
+func Attachment(contentType, filename string, body []byte) BodyPart {
 	contentType, filename, cid := attach(contentType, filename, body)
-	return bodyPart{ct: contentType, filename: filename, attach: true, body: body, cid: cid}
+	return BodyPart{ct: contentType, filename: filename, attach: true, body: body, cid: cid}
 }
 
 // InlineImage returns a new inline image part.
 //
 // It will try to guess the Content-Type if empty.
 //
-// Then use "cid:blackmail:<n>" to reference it:
+// Use "cid:blackmail:<n>" to reference it in a HTML body:
 //
 //    <img src="cid:blackmail:1">     First InlineImage()
 //    <img src="cid:blackmail:2">     Second InlineImage()
-func InlineImage(contentType, filename string, body []byte) bodyPart {
+func InlineImage(contentType, filename string, body []byte) BodyPart {
 	contentType, filename, cid := attach(contentType, filename, body)
-	return bodyPart{ct: contentType, filename: filename, inlineAttach: true, body: body, cid: cid}
+	return BodyPart{ct: contentType, filename: filename, inlineAttach: true, body: body, cid: cid}
 }
 
 // Headers adds the headers to the message.
@@ -112,68 +130,51 @@ func InlineImage(contentType, filename string, body []byte) bodyPart {
 //
 //   Headers("My-Header", "value",
 //       "Message-Id", "<my-message-id@example.com>")
-func Headers(keyValue ...string) bodyPart {
-	if len(keyValue)%2 == 1 {
-		return bodyPart{err: errors.New("blackmail.Headers: odd argument count")}
-	}
-	return bodyPart{ct: "HEADERS", headers: keyValue}
+func Headers(keyValue ...string) HeaderPart {
+	return HeaderPart{}.FromList(keyValue)
 }
 
 // HeadersAutoreply sets headers to indicate this message is a an autoreply.
 //
-// See e.g: https://www.arp242.net/autoreply.html#what-you-need-to-set-on-your-auto-response
-func HeadersAutoreply() bodyPart {
+// See: https://www.arp242.net/autoreply.html#what-you-need-to-set-on-your-auto-response
+func HeadersAutoreply() HeaderPart {
 	return Headers("Auto-Submitted", "auto-replied",
 		"X-Auto-Response-Suppress", "All",
 		"Precedence", "auto_reply")
 }
 
-// Sign the message with the given PGP key.
-func Sign(pubkey, privkey []byte, parts ...bodyPart) bodyPart {
-	return bodyPart{ct: "multipart/signed", parts: parts, pubkey: pubkey, privkey: privkey}
-}
-
-// From makes creating a mail.Address a bit more convenient.
+// From creates a mail.Address with a name and email address.
+//
+//   blackmail.From("foo, "foo@example.com)
+//
+// Is identical to:
 //
 //   mail.Address{Name: "foo, Address: "foo@example.com}
-//   blackmail.From{"foo, "foo@example.com)
 func From(name, address string) mail.Address {
 	return mail.Address{Name: name, Address: address}
 }
 
-// To sets the To: from a list of email addresses.
-func To(addr ...string) []recipient  { return rcpt("to", addr...) }
-func Cc(addr ...string) []recipient  { return rcpt("cc", addr...) }
-func Bcc(addr ...string) []recipient { return rcpt("bcc", addr...) }
-
-// ToAddress sets the To: from a list of mail.Addresses.
-func ToAddress(addr ...mail.Address) []recipient  { return rcptAddress("to", addr...) }
-func CcAddress(addr ...mail.Address) []recipient  { return rcptAddress("cc", addr...) }
-func BccAddress(addr ...mail.Address) []recipient { return rcptAddress("bcc", addr...) }
+// To sets the To: from a name and email address.
+func To(name, addr string) RcptPart  { return rcptOne(rcptTo, name, addr) }
+func Cc(name, addr string) RcptPart  { return rcptOne(rcptCc, name, addr) }
+func Bcc(name, addr string) RcptPart { return rcptOne(rcptBcc, name, addr) }
 
 // ToNames sets the To: from a list of "name", "addr" arguments.
-func ToNames(nameAddr ...string) []recipient  { return rcptNames("to", nameAddr...) }
-func CcNames(nameAddr ...string) []recipient  { return rcptNames("cc", nameAddr...) }
-func BccNames(nameAddr ...string) []recipient { return rcptNames("bcc", nameAddr...) }
+func ToNames(nameAddr ...string) RcptParts  { return rcptNames(rcptTo, nameAddr) }
+func CcNames(nameAddr ...string) RcptParts  { return rcptNames(rcptCc, nameAddr) }
+func BccNames(nameAddr ...string) RcptParts { return rcptNames(rcptBcc, nameAddr) }
 
-// TODO: maybe also add helpers to parse?
-// func ToParse(in string) []recipient { return rcpt(mail.Parse(in)) }
+// ToAddr sets the To: from a list of mail.Addresses.
+func ToAddr(addr ...mail.Address) RcptParts  { return rcptAddr(rcptTo, addr) }
+func CcAddr(addr ...mail.Address) RcptParts  { return rcptAddr(rcptCc, addr) }
+func BccAddr(addr ...mail.Address) RcptParts { return rcptAddr(rcptBcc, addr) }
 
-// TODO: maybe add a From() function too, just so it looks nicer:
-//
-//    err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
-//        blackmail.Address("", "blackmail@example.com"),
-//        blackmail.To("Name", "victim@example.com"),
-//        blackmail.Bodyf("I can haz ur bitcoinz?"))
-//
-// vs.
-//
-//    err := blackmail.Send("Send me bitcoins or I will leak your browsing history!",
-//        blackmail.From("", "blackmail@example.com"),
-//        blackmail.To("Name", "victim@example.com"),
-//        blackmail.Bodyf("I can haz ur bitcoinz?"))
+// ToList sets the To: from a list of addresses. This does not set any name.
+func ToList(addr ...string) RcptParts  { return rcptList(rcptTo, addr) }
+func CcList(addr ...string) RcptParts  { return rcptList(rcptCc, addr) }
+func BccList(addr ...string) RcptParts { return rcptList(rcptBcc, addr) }
 
-// Message formats a message.
-func Message(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) ([]byte, []string, error) {
-	return message(subject, from, rcpt, firstPart, parts...)
+// Message creates a RFC-5322 formatted message.
+func Message(subject string, from mail.Address, parts ...Part) ([]byte, []string, error) {
+	return message(subject, from, parts...)
 }

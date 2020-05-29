@@ -6,26 +6,19 @@ import (
 	"testing"
 )
 
-var (
-	_ sender = senderWriter{}
-	_ sender = senderRelay{}
-	_ sender = senderDirect{}
-)
-
-func TestMailerStdout(t *testing.T) {
+func TestMailerWriter(t *testing.T) {
 	buf := new(bytes.Buffer)
-	m := NewMailer(ConnectWriter, MailerOut(buf))
+	m := NewMailerWriter(buf)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-
 		err := m.Send("Subject!",
 			From("My name", "myemail@example.com"),
 			To("Name", "addr"),
-			Bodyf("Well, hello there!"))
+			BodyText("Well, hello there!"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -33,11 +26,10 @@ func TestMailerStdout(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-
 		err := m.Send("Subject!",
 			From("My name", "myemail@example.com"),
 			To("Name", "addr"),
-			Bodyf("Well, hello there!"))
+			BodyText("Well, hello there!"))
 		if err != nil {
 			t.Fatal(err)
 		}

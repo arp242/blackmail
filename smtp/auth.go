@@ -1,7 +1,5 @@
 package smtp
 
-// Note: most of this code was copied, with some modifications, from net/smtp.
-
 import (
 	"bytes"
 	"crypto/hmac"
@@ -11,10 +9,7 @@ import (
 )
 
 // Common SASL errors.
-var (
-	ErrUnexpectedAuthResponse    = errors.New("sasl: unexpected client response")
-	ErrUnexpectedServerChallenge = errors.New("sasl: unexpected server challenge")
-)
+var ErrUnexpectedServerChallenge = errors.New("sasl: unexpected server challenge")
 
 // Auth interface to perform challenge-response authentication.
 type Auth interface {
@@ -34,6 +29,28 @@ type Auth interface {
 	Next(challenge []byte) (response []byte, err error)
 }
 
+// PlainAuth implements the PLAIN authentication mechanism as described in RFC
+// 4616. Authorization identity may be left blank to indicate that it is the
+// same as the username.
+func PlainAuth(identity, username, password string) Auth {
+	return &plainAuth{identity, username, password}
+}
+
+// LoginAuth implements of the LOGIN authentication mechanism as described in
+// http://www.iana.org/go/draft-murchison-sasl-login
+func LoginAuth(username, password string) Auth {
+	return &loginAuth{username, password}
+}
+
+// CramMD5Auth implements the CRAM-MD5 authentication mechanism, as described in
+// RFC 2195.
+//
+// The returned Auth uses the given username and secret to authenticate to the
+// server using the challenge-response mechanism.
+func CramMD5Auth(username, secret string) Auth {
+	return &cramMD5Auth{username, secret}
+}
+
 type plainAuth struct{ Identity, Username, Password string }
 
 func (a *plainAuth) Start() (mech string, ir []byte, err error) {
@@ -42,13 +59,6 @@ func (a *plainAuth) Start() (mech string, ir []byte, err error) {
 
 func (a *plainAuth) Next(challenge []byte) (response []byte, err error) {
 	return nil, ErrUnexpectedServerChallenge
-}
-
-// PlainAuth implements the PLAIN authentication mechanism as described in RFC
-// 4616. Authorization identity may be left blank to indicate that it is the
-// same as the username.
-func PlainAuth(identity, username, password string) Auth {
-	return &plainAuth{identity, username, password}
 }
 
 type loginAuth struct{ Username, Password string }
@@ -64,12 +74,6 @@ func (a *loginAuth) Next(challenge []byte) (response []byte, err error) {
 	return []byte(a.Password), nil
 }
 
-// LoginAuth implements of the LOGIN authentication mechanism as described in
-// http://www.iana.org/go/draft-murchison-sasl-login
-func LoginAuth(username, password string) Auth {
-	return &loginAuth{username, password}
-}
-
 type cramMD5Auth struct{ Username, Secret string }
 
 func (a *cramMD5Auth) Start() (mech string, ir []byte, err error) {
@@ -81,13 +85,4 @@ func (a *cramMD5Auth) Next(challenge []byte) (response []byte, err error) {
 	d.Write(challenge)
 	s := make([]byte, 0, d.Size())
 	return []byte(fmt.Sprintf("%s %x", a.Username, d.Sum(s))), nil
-}
-
-// CramMD5Auth implements the CRAM-MD5 authentication mechanism, as described in
-// RFC 2195.
-//
-// The returned Auth uses the given username and secret to authenticate to the
-// server using the challenge-response mechanism.
-func CramMD5Auth(username, secret string) Auth {
-	return &cramMD5Auth{username, secret}
 }

@@ -7,11 +7,8 @@
 // It also implements the following extensions:
 //
 //  8BITMIME             RFC 1652
-//  AUTH                 RFC 2554
-//  STARTTLS             RFC 3207
 //  ENHANCEDSTATUSCODES  RFC 2034
-//  SMTPUTF8             RFC 6531
-//  REQUIRETLS           draft-ietf-uta-smtp-require-tls-09
+//  STARTTLS             RFC 3207
 package smtp
 
 import (
@@ -26,31 +23,8 @@ import (
 	"strings"
 )
 
-// MailOptions contains custom arguments that were passed as an argument to the
-// MAIL command.
-type MailOptions struct {
-	// Size of the body. Can be 0 if not specified by client.
-	Size int
-
-	// TLS is required for the message transmission.
-	//
-	// The message should be rejected if it can't be transmitted
-	// with TLS.
-	RequireTLS bool
-
-	// The message envelope or message header contains UTF-8-encoded strings.
-	// This flag is set by SMTPUTF8-aware (RFC 6531) client.
-	UTF8 bool
-
-	// The authorization identity asserted by the message sender in decoded
-	// form with angle brackets stripped.
-	//
-	// nil value indicates missing AUTH, non-nil empty string indicates
-	// AUTH=<>.
-	//
-	// Defined in RFC 4954.
-	Auth *string
-}
+// Debug prints all outgoing and incoming messages to stderr.
+var Debug = false
 
 type EnhancedCode [3]int
 
@@ -67,127 +41,68 @@ func (err *SMTPError) Temporary() bool { return err.Code/100 == 4 }
 
 // A Client represents a client connection to an SMTP server.
 type Client struct {
-	// Text is the textproto.Conn used by the Client. It is exported to allow for
+	// Text is the textproto.Conn used by the Client. It is exported to allow
 	// clients to add extensions.
 	Text *textproto.Conn
 
-	// keep a reference to the connection so it can be used to create a TLS
-	// connection later
-	conn net.Conn
-
-	// whether the Client is using TLS
-	tls        bool
-	serverName string
-	lmtp       bool
-
-	// map of supported extensions
-	ext map[string]string
-
-	// supported auth mechanisms
-	auth       []string
-	localName  string   // the name to use in HELO/EHLO/LHLO
-	didHello   bool     // whether we've said HELO/EHLO/LHLO
-	helloError error    // the error from the hello
-	rcpts      []string // recipients accumulated for the current session
+	conn       net.Conn          // So it can be used to create a TLS connection later.
+	tls        bool              // TLS enabled?
+	serverName string            // TLS servername.
+	ext        map[string]string // Map of supported extensions.
+	auth       []string          // Supported auth mechanisms.
+	localName  string            // The name to use in HELO/EHLO/LHLO
+	didHello   bool              // Whether we've said HELO/EHLO/LHLO
+	helloError error             // The error from the hello.
+	rcpts      []string          // Recipients accumulated for the current session.
 }
 
-// SendMail connects to the server at addr, switches to TLS if possible,
-// authenticates with the optional mechanism a if possible, and then sends an
-// email from address from, to addresses to, with message r.
+func SendAuth(v Auth) sendOpt                 { return func(c *sendOptions) { c.auth = v } }
+func SendTLS(v *tls.Config) sendOpt           { return func(c *sendOptions) { c.tls = v } }
+func SendRequireTLS(v bool) sendOpt           { return func(c *sendOptions) { c.tlsRequired = v } }
+func SendMailOptions(opts ...mailOpt) sendOpt { return func(c *sendOptions) { c.mailOptions = opts } }
+
+// Send is a high-level API to send an email.
 //
-// The addr must include a port, as in "mail.example.com:smtp".
+// The addr can include a port (e.g. "mail.example.com:465") and will default to
+// 25 if omitted.
 //
 // The addresses in the to parameter are the SMTP RCPT addresses.
 //
-// The r parameter should be an RFC 5322-style email with headers first, a blank
-// line, and then the message body. The lines of r should be CRLF terminated.
-// The r headers should usually include fields such as "From", "To", "Subject",
-// and "Cc".  Sending "Bcc" messages is accomplished by including an email
-// address in the to parameter but not including it in the r headers.
+// The msg parameter should be an CRLF terminated RFC 5322-style email with
+// headers, as created by blackmail.Message()
 //
-// TODO: this should accept some options.
-func SendMail(addr string, a Auth, from string, to []string, r io.Reader) error {
-	if err := validateLine(from); err != nil {
-		return err
-	}
-	for _, recp := range to {
-		if err := validateLine(recp); err != nil {
-			return err
-		}
-	}
-
-	// TODO: DialTLS() if port is 465.
-	c, err := Dial(addr)
-	if err != nil {
-		return err
-	}
-	defer c.Close()
-	if err = c.hello(); err != nil {
-		return err
-	}
-
-	// TODO: add option to make missing STARTLS an error.
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err = c.StartTLS(nil); err != nil {
-			return err
-		}
-	}
-
-	if a != nil && c.ext != nil {
-		if _, ok := c.ext["AUTH"]; !ok {
-			return errors.New("smtp: server doesn't support AUTH")
-		}
-		if err = c.Auth(a); err != nil {
-			return err
-		}
-	}
-	if err = c.Mail(from, nil); err != nil {
-		return err
-	}
-	for _, addr := range to {
-		if err = c.Rcpt(addr); err != nil {
-			return err
-		}
-	}
-	w, err := c.Data()
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(w, r)
-	if err != nil {
-		return err
-	}
-	err = w.Close()
-	if err != nil {
-		return err
-	}
-	return c.Quit()
+// Note: sending "Bcc" messages is accomplished by including the email address
+// in the to parameter but not including it in the msg headers.
+func Send(addr string, from string, to []string, msg []byte, opts ...sendOpt) error {
+	return send(addr, from, to, msg, opts...)
 }
 
-// Dial returns a new Client connected to an SMTP server at addr. The addr must
-// include a port, as in "mail.example.com:smtp".
+// Dial returns a new Client connected to an SMTP server at addr.
+//
+// The addr must include a port, as in "mail.example.com:smtp" or
+// "mail.example.com:465".
 func Dial(addr string) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	host, _, _ := net.SplitHostPort(addr)
-	return NewClient(conn, host)
+	return NewClient(conn, addr)
 }
 
-// DialTLS returns a new Client connected to an SMTP server via TLS at addr. The
-// addr must include a port, as in "mail.example.com:smtps".
+// DialTLS returns a new Client connected to an SMTP server via TLS at addr.
+//
+// The addr must include a port, as in "mail.example.com:smtp" or
+// "mail.example.com:465".
 func DialTLS(addr string, tlsConfig *tls.Config) (*Client, error) {
 	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
-	host, _, _ := net.SplitHostPort(addr)
-	return NewClient(conn, host)
+	return NewClient(conn, addr)
 }
 
 // NewClient returns a new Client using an existing connection and host as a
-// server name to be used when authenticating.
+// server name, which is used when authenticating.
 func NewClient(conn net.Conn, host string) (*Client, error) {
 	text := textproto.NewConn(conn)
 	_, _, err := text.ReadResponse(220)
@@ -198,9 +113,16 @@ func NewClient(conn net.Conn, host string) (*Client, error) {
 		}
 		return nil, err
 	}
+
 	_, isTLS := conn.(*tls.Conn)
-	c := &Client{Text: text, conn: conn, serverName: host, localName: "localhost", tls: isTLS}
-	return c, nil
+	host, _, _ = net.SplitHostPort(host)
+	return &Client{
+		Text:       text,
+		conn:       conn,
+		serverName: host,
+		localName:  "localhost",
+		tls:        isTLS,
+	}, nil
 }
 
 // Close closes the connection.
@@ -208,25 +130,14 @@ func (c *Client) Close() error {
 	return c.Text.Close()
 }
 
-// hello runs a hello exchange if needed.
-func (c *Client) hello() error {
-	if !c.didHello {
-		c.didHello = true
-		err := c.ehlo()
-		if err != nil {
-			c.helloError = c.helo()
-		}
-	}
-	return c.helloError
-}
-
 // Hello sends a HELO or EHLO to the server as the given host name.
-// Calling this method is only necessary if the client needs control
-// over the host name used. The client will introduce itself as "localhost"
-// automatically otherwise. If Hello is called, it must be called before
-// any of the other methods.
 //
-// If server returns an error, it will be of type *SMTPError.
+// Calling this method is only necessary if the client needs control over the
+// host name used. The client will introduce itself as "localhost" automatically
+// otherwise. If Hello is called, it must be called before any of the other
+// methods.
+//
+// Server errors are returned as *SMTPError.
 func (c *Client) Hello(localName string) error {
 	if err := validateLine(localName); err != nil {
 		return err
@@ -238,49 +149,11 @@ func (c *Client) Hello(localName string) error {
 	return c.hello()
 }
 
-// helo sends the HELO greeting to the server. It should be used only when the
-// server does not support ehlo.
-func (c *Client) helo() error {
-	c.ext = nil
-	_, _, err := c.cmd(250, "HELO %s", c.localName)
-	return err
-}
-
-// ehlo sends the EHLO (extended hello) greeting to the server. It
-// should be the preferred greeting for servers that support it.
-func (c *Client) ehlo() error {
-	cmd := "EHLO"
-	if c.lmtp {
-		cmd = "LHLO"
-	}
-	_, msg, err := c.cmd(250, "%s %s", cmd, c.localName)
-	if err != nil {
-		return err
-	}
-	ext := make(map[string]string)
-	extList := strings.Split(msg, "\n")
-	if len(extList) > 1 {
-		extList = extList[1:]
-		for _, line := range extList {
-			args := strings.SplitN(line, " ", 2)
-			if len(args) > 1 {
-				ext[args[0]] = args[1]
-			} else {
-				ext[args[0]] = ""
-			}
-		}
-	}
-	if mechs, ok := ext["AUTH"]; ok {
-		c.auth = strings.Split(mechs, " ")
-	}
-	c.ext = ext
-	return err
-}
-
 // StartTLS sends the STARTTLS command and encrypts all further communication.
+//
 // Only servers that advertise the STARTTLS extension support this function.
 //
-// If server returns an error, it will be of type *SMTPError.
+// Server errors are returned as *SMTPError.
 func (c *Client) StartTLS(config *tls.Config) error {
 	if err := c.hello(); err != nil {
 		return err
@@ -289,26 +162,26 @@ func (c *Client) StartTLS(config *tls.Config) error {
 	if err != nil {
 		return err
 	}
+
 	if config == nil {
 		config = &tls.Config{}
 	}
 	if config.ServerName == "" {
-		// Make a copy to avoid polluting argument
-		config = config.Clone()
+		config = config.Clone() // Copy to avoid modifying the argument.
 		config.ServerName = c.serverName
 	}
 	if testHookStartTLS != nil {
 		testHookStartTLS(config)
 	}
+
 	c.conn = tls.Client(c.conn, config)
 	c.Text = textproto.NewConn(c.conn)
 	c.tls = true
 	return c.ehlo()
 }
 
-// TLSConnectionState returns the client's TLS connection state.
-// The return values are their zero values if StartTLS did
-// not succeed.
+// TLSConnectionState returns the client's TLS connection state. The return
+// values are their zero values if StartTLS did not succeed.
 func (c *Client) TLSConnectionState() (state tls.ConnectionState, ok bool) {
 	tc, ok := c.conn.(*tls.Conn)
 	if !ok {
@@ -318,11 +191,12 @@ func (c *Client) TLSConnectionState() (state tls.ConnectionState, ok bool) {
 }
 
 // Verify checks the validity of an email address on the server.
-// If Verify returns nil, the address is valid. A non-nil return
-// does not necessarily indicate an invalid address. Many servers
-// will not verify addresses for security reasons.
 //
-// If server returns an error, it will be of type *SMTPError.
+// If Verify returns nil, the address is valid. A non-nil return does not
+// necessarily indicate an invalid address; many servers will not verify
+// addresses for security reasons.
+//
+// Server errors are returned as *SMTPError.
 func (c *Client) Verify(addr string) error {
 	if err := validateLine(addr); err != nil {
 		return err
@@ -335,18 +209,21 @@ func (c *Client) Verify(addr string) error {
 }
 
 // Auth authenticates a client using the provided authentication mechanism.
+//
 // Only servers that advertise the AUTH extension support this function.
 //
-// If server returns an error, it will be of type *SMTPError.
+// Server errors are returned as *SMTPError.
 func (c *Client) Auth(a Auth) error {
 	if err := c.hello(); err != nil {
 		return err
 	}
+
 	encoding := base64.StdEncoding
 	mech, resp, err := a.Start()
 	if err != nil {
 		return err
 	}
+
 	resp64 := make([]byte, encoding.EncodedLen(len(resp)))
 	encoding.Encode(resp64, resp)
 	code, msg64, err := c.cmd(0, strings.TrimSpace(fmt.Sprintf("AUTH %s %s", mech, resp64)))
@@ -355,8 +232,7 @@ func (c *Client) Auth(a Auth) error {
 		switch code {
 		case 334:
 			msg, err = encoding.DecodeString(msg64)
-		case 235:
-			// the last message isn't base64 because it isn't a challenge
+		case 235: // the last message isn't base64 because it isn't a challenge
 			msg = []byte(msg64)
 		default:
 			err = toSMTPErr(&textproto.Error{Code: code, Msg: msg64})
@@ -368,8 +244,7 @@ func (c *Client) Auth(a Auth) error {
 				resp = nil
 			}
 		}
-		if err != nil {
-			// abort the AUTH
+		if err != nil { // abort the AUTH
 			c.cmd(501, "*")
 			break
 		}
@@ -383,58 +258,96 @@ func (c *Client) Auth(a Auth) error {
 	return err
 }
 
-// Mail issues a MAIL command to the server using the provided email address.
-// If the server supports the 8BITMIME extension, Mail adds the BODY=8BITMIME
-// parameter.
+// MailSize sets the size of the body; used by servers to reject messages
+// quickly if they're too large. Note this should be the total size after
+// application of base64 etc. See RFC1870
+func MailSize(s int) mailOpt { return func(c *mailOptions) { c.Size = s } }
+
+// The message envelope or message header contains UTF-8-encoded strings. This
+// flag is set by SMTPUTF8-aware (RFC 6531) client.
+func MailUTF8(enable bool) mailOpt { return func(c *mailOptions) { c.UTF8 = enable } }
+
+// The authorization identity asserted by the message sender in decoded form
+// with angle brackets stripped. nil value indicates missing AUTH, non-nil empty
+// string indicates AUTH=<>.
+// Defined in RFC 4954.
+func MailAuth(a string) mailOpt { return func(c *mailOptions) { c.Auth = &a } }
+
+// Mail sends a MAIL command to the server using the provided email address.
+//
+// BODY=8BITMIME is added if the server supports the 8BITMIME extension.
+//
 // This initiates a mail transaction and is followed by one or more Rcpt calls.
 //
-// If opts is not nil, MAIL arguments provided in the structure will be added
-// to the command. Handling of unsupported options depends on the extension.
+// If opts is not nil, MAIL arguments provided in the structure will be added to
+// the command. Handling of unsupported options depends on the extension.
 //
-// If server returns an error, it will be of type *SMTPError.
-func (c *Client) Mail(from string, opts *MailOptions) error {
+// Server errors are returned as *SMTPError.
+func (c *Client) Mail(from string, opts ...mailOpt) error {
 	if err := validateLine(from); err != nil {
 		return err
 	}
 	if err := c.hello(); err != nil {
 		return err
 	}
-	cmdStr := "MAIL FROM:<%s>"
+
+	var opt mailOptions
+	for _, o := range opts {
+		o(&opt)
+	}
+
+	cmd := "MAIL FROM:<%s>"
 	if _, ok := c.ext["8BITMIME"]; ok {
-		cmdStr += " BODY=8BITMIME"
+		cmd += " BODY=8BITMIME"
 	}
-	if _, ok := c.ext["SIZE"]; ok && opts != nil && opts.Size != 0 {
-		cmdStr += " SIZE=" + strconv.Itoa(opts.Size)
+
+	// TODO
+	if _, ok := c.ext["SIZE"]; ok && opts != nil && opt.Size != 0 {
+		cmd += " SIZE=" + strconv.Itoa(opt.Size)
 	}
-	if opts != nil && opts.RequireTLS {
-		if _, ok := c.ext["REQUIRETLS"]; ok {
-			cmdStr += " REQUIRETLS"
-		} else {
-			return errors.New("smtp: server does not support REQUIRETLS")
-		}
-	}
-	if opts != nil && opts.UTF8 {
-		if _, ok := c.ext["SMTPUTF8"]; ok {
-			cmdStr += " SMTPUTF8"
-		} else {
-			return errors.New("smtp: server does not support SMTPUTF8")
-		}
-	}
-	if opts != nil && opts.Auth != nil {
-		if _, ok := c.ext["AUTH"]; ok {
-			cmdStr += " AUTH=" + encodeXtext(*opts.Auth)
-		}
-		// We can safely discard parameter if server does not support AUTH.
-	}
-	_, _, err := c.cmd(250, cmdStr, from)
+
+	// TODO: I don't think we really need this, as we already check it? Need to
+	// read doc more:
+	// https://tools.ietf.org/html/draft-ietf-uta-smtp-require-tls-09
+	//
+	// Also check if anyone actually supports that.
+	// if opts != nil && opts.RequireTLS {
+	// 	if _, ok := c.ext["REQUIRETLS"]; ok {
+	// 		cmd += " REQUIRETLS"
+	// 	} else {
+	// 		return errors.New("smtp: server does not support REQUIRETLS")
+	// 	}
+	// }
+
+	// TODO: check
+	//  SMTPUTF8             RFC 6531
+	// if opts != nil && opts.UTF8 {
+	// 	if _, ok := c.ext["SMTPUTF8"]; ok {
+	// 		cmd += " SMTPUTF8"
+	// 	} else {
+	// 		return errors.New("smtp: server does not support SMTPUTF8")
+	// 	}
+	// }
+
+	// TODO: check
+	//  AUTH                 RFC 2554
+	// if opts != nil && opts.Auth != nil {
+	// 	if _, ok := c.ext["AUTH"]; ok {
+	// 		cmd += " AUTH=" + encodeXtext(*opts.Auth)
+	// 	}
+	// 	// We can safely discard parameter if server does not support AUTH.
+	// }
+
+	_, _, err := c.cmd(250, cmd, from)
 	return err
 }
 
-// Rcpt issues a RCPT command to the server using the provided email address.
-// A call to Rcpt must be preceded by a call to Mail and may be followed by
-// a Data call or another Rcpt call.
+// Rcpt sends a RCPT command to the server.
 //
-// If server returns an error, it will be of type *SMTPError.
+// A call to Rcpt must be preceded by a call to Mail and may be followed by a
+// Data call or another Rcpt call.
+//
+// Server errors are returned as *SMTPError.
 func (c *Client) Rcpt(to string) error {
 	if err := validateLine(to); err != nil {
 		return err
@@ -446,12 +359,13 @@ func (c *Client) Rcpt(to string) error {
 	return nil
 }
 
-// Data issues a DATA command to the server and returns a writer that
-// can be used to write the mail headers and body. The caller should
-// close the writer before calling any more methods on c. A call to
-// Data must be preceded by one or more calls to Rcpt.
+// Data sends a DATA command to the server, returning a writer to write the
+// message to.
 //
-// If server returns an error, it will be of type *SMTPError.
+// The caller should close the writer before calling any more methods on c. A
+// call to Data must be preceded by one or more calls to Rcpt.
+//
+// Server errors are returned as *SMTPError.
 func (c *Client) Data() (io.WriteCloser, error) {
 	_, _, err := c.cmd(354, "DATA")
 	if err != nil {
@@ -472,8 +386,8 @@ func (c *Client) Extension(ext string) (bool, string) {
 	if c.ext == nil {
 		return false, ""
 	}
-	ext = strings.ToUpper(ext)
-	param, ok := c.ext[ext]
+
+	param, ok := c.ext[strings.ToUpper(ext)]
 	return ok, param
 }
 
@@ -502,8 +416,8 @@ func (c *Client) Noop() error {
 
 // Quit sends the QUIT command and closes the connection to the server.
 //
-// If Quit fails the connection is not closed, Close should be used
-// in this case.
+// If Quit fails the connection is not closed, Close should be used in this
+// case.
 func (c *Client) Quit() error {
 	if err := c.hello(); err != nil {
 		return err
@@ -513,24 +427,4 @@ func (c *Client) Quit() error {
 		return err
 	}
 	return c.Text.Close()
-}
-
-// cmd is a convenience function that sends a command and returns the response
-// textproto.Error returned by c.Text.ReadResponse is converted into SMTPError.
-func (c *Client) cmd(expectCode int, format string, args ...interface{}) (int, string, error) {
-	id, err := c.Text.Cmd(format, args...)
-	if err != nil {
-		return 0, "", err
-	}
-	c.Text.StartResponse(id)
-	defer c.Text.EndResponse(id)
-	code, msg, err := c.Text.ReadResponse(expectCode)
-	if err != nil {
-		if protoErr, ok := err.(*textproto.Error); ok {
-			smtpErr := toSMTPErr(protoErr)
-			return code, smtpErr.Message, smtpErr
-		}
-		return code, msg, err
-	}
-	return code, msg, nil
 }
