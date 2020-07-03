@@ -111,7 +111,7 @@ func NewMailer(smtp string, opts ...senderOpt) Mailer {
 	var m Mailer
 	switch smtp {
 	case ConnectWriter:
-		s := senderWriter{w: stdout}
+		s := senderWriter{w: stdout, mu: new(sync.Mutex)}
 		for _, o := range opts {
 			o(&s)
 		}
