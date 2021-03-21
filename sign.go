@@ -14,7 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/openpgp"
@@ -24,11 +24,11 @@ import (
 
 // SignKeys loads the public and private keys from the
 func SignKeys(pubFile, privFile string) (pub, priv []byte, err error) {
-	pub, err = ioutil.ReadFile(pubFile)
+	pub, err = os.ReadFile(pubFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("blackmail.SignKeys: %w", err)
 	}
-	priv, err = ioutil.ReadFile(privFile)
+	priv, err = os.ReadFile(privFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("blackmail.SignKeys: %w", err)
 	}

@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/mail"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"zgo.at/ztest"
-	"zgo.at/ztest/image"
+	"zgo.at/zstd/ztest"
+	"zgo.at/zstd/ztest/image"
 )
 
 func TestMessage(t *testing.T) {
@@ -173,7 +173,7 @@ func TestMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
-			f, err := ioutil.ReadFile("testdata/" + tt.file + ".eml")
+			f, err := os.ReadFile("testdata/" + tt.file + ".eml")
 			if err != nil {
 				m, _, _ := tt.in()
 				t.Log("\n" + string(m)) // So we can copy/paste when writing new tests.
