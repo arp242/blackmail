@@ -9,10 +9,12 @@ Why a new package? I didn't care much for the API of many of the existing
 solutions. I also wanted an email package which supports easy PGP signing
 out-of-the-box (see [this article][sign] for some background on that).
 
-Import the library as `zgo.at/blackmail`; [godoc][godoc]. There is also a smtp
-client library at `zgo.at/blackmail/smtp` which can be used without the main
-blackmail client if you want. It's a modified version of net/smtp (via
-[go-smtp][go-smtp], although I removed most added features from that).
+Import the library as `zgo.at/blackmail`; API docs: https://godocs.io/zgo.at/blackmail
+
+There is also a smtp client library at `zgo.at/blackmail/smtp` which can be used
+without the main blackmail client if you want. It's a modified version of
+net/smtp (via [go-smtp][go-smtp], although I removed most added features from
+that).
 
 There is a small commandline utility at `cmd/blackmail`; try it with `go run
 ./cmd/blackmail`.
@@ -23,7 +25,6 @@ other than ASCII and UTF-8, or a one-stop-shop for your very specific complex
 requirements. It should be able to handle all common (and not-so-common) use
 cases though.
 
-[godoc]: https://pkg.go.dev/zgo.at/blackmail
 [sign]: https://www.arp242.net/signing-emails.html
 [go-smtp]: https://github.com/emersion/go-smtp
 
