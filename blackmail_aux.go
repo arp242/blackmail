@@ -35,9 +35,8 @@ type (
 		attach       bool
 		inlineAttach bool
 
-		headers         []string // For Headers()
-		pubkey, privkey []byte   // For Sign()
-		cid             string   // Content-ID reference
+		headers []string // For Headers()
+		cid     string   // Content-ID reference
 	}
 
 	// recipient is someone to send an email to. Create a new one with the To*,
@@ -187,34 +186,15 @@ func message(subject string, from mail.Address, rcpt []recipient, firstPart body
 
 	fmt.Fprint(msg, "Mime-Version: 1.0\r\n")
 	fmt.Fprintf(msg, "Content-Type: %s;\r\n\tboundary=\"%s\"\r\n\r\n", ct, w.Boundary())
-	si := bodyMIME(msg, w, parts, from.Address)
+	bodyMIME(msg, w, parts, from.Address)
 	w.Close()
 
 	out := msg.Bytes()
 
-	if len(si) > 0 {
-		for _, s := range si {
-			// TODO: get the actual data.
-			toSign := []byte("Content-Transfer-Encoding: quoted-printable\r\n[..]")
-
-			sig, err := signMessage(toSign, s.part.pubkey, s.part.privkey)
-			if err != nil {
-				return nil, nil, fmt.Errorf("blackmail.Message: %w", err)
-			}
-
-			out = bytes.ReplaceAll(out, []byte(s.repl), sig)
-		}
-	}
-
 	return out, toList, nil
 }
 
-type signInfo struct {
-	part bodyPart
-	repl string
-}
-
-func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string) []signInfo {
+func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string) {
 	// Gather all cid: links.
 	var cids []string
 	for _, p := range parts {
@@ -223,26 +203,9 @@ func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string)
 		}
 	}
 
-	var si []signInfo
-
 	for _, p := range parts {
 		// Multipart
 		if p.isMultipart() {
-			// Skip this, as we already set it on the top-level message.
-			r := randomBoundary()
-			if p.ct == "multipart/signed" {
-				p.parts = append(p.parts, bodyPart{
-					ct:       "application/pgp-signature",
-					attach:   true, // TODO: maybe inline it?
-					filename: "signature.asc",
-					body:     []byte(r),
-				})
-
-				si = append(si, signInfo{part: p, repl: r})
-				si = append(si, bodyMIME(msg, w, p.parts, from)...)
-				continue
-			}
-
 			b := randomBoundary()
 			if testBoundary != "" {
 				b = testBoundary + "222"
@@ -256,7 +219,7 @@ func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string)
 				panic(err) // TODO: return error?
 			}
 
-			si = append(si, bodyMIME(part, w2, p.parts, from)...)
+			bodyMIME(part, w2, p.parts, from)
 			w2.Close()
 			continue
 		}
@@ -301,8 +264,6 @@ func bodyMIME(msg io.Writer, w *multipart.Writer, parts []bodyPart, from string)
 		bw.Write(p.body)
 		bw.Close()
 	}
-
-	return si
 }
 
 func randomBoundary() string {

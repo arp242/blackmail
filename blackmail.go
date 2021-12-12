@@ -128,11 +128,6 @@ func HeadersAutoreply() bodyPart {
 		"Precedence", "auto_reply")
 }
 
-// Sign the message with the given PGP key.
-func Sign(pubkey, privkey []byte, parts ...bodyPart) bodyPart {
-	return bodyPart{ct: "multipart/signed", parts: parts, pubkey: pubkey, privkey: privkey}
-}
-
 // From makes creating a mail.Address a bit more convenient.
 //
 //   mail.Address{Name: "foo, Address: "foo@example.com}

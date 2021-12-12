@@ -143,28 +143,6 @@ func TestMessage(t *testing.T) {
 					[]byte(`<b>Auto respond</b><br><img src="cid:blackmail:1"`),
 					InlineImage("", "logo.png", image.PNG)))
 		}, []string{"cust@example.com", "x@x.x"}},
-
-		// Sign a message.
-		// {"sign", func() ([]byte, []string, error) {
-		// 	pub, priv, err := SignKeys("./testdata/test.pub", "./testdata/test.priv")
-		// 	if err != nil {
-		// 		t.Fatal(err)
-		// 	}
-		// 	return Message("Signed", Address("", "me@example.com"),
-		// 		To("to@to.to"),
-		// 		Sign(pub, priv, Bodyf("I sign on the dotted line!")))
-		// }, []string{"to@to.to"}},
-
-		// Create keys and sign a message with it/
-		// {"sign-create", func() ([]byte, []string, error) {
-		// 	pub, priv, err := SignCreateKeys()
-		// 	if err != nil {
-		// 		t.Fatal(err)
-		// 	}
-		// 	return Message("Hello!", Address("", "me@example.com"),
-		// 		To("to@to.to"),
-		// 		Bodyf("Hello=there"), Sign(pub, priv))
-		// }, []string{"to@to.to"}},
 	}
 
 	now = func() time.Time { return time.Date(2019, 6, 18, 13, 37, 00, 123456789, time.UTC) }
