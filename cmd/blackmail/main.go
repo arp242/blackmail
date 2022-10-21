@@ -29,7 +29,7 @@ Optional flags:
 `
 
 func main() {
-	flag.Usage = func() { fmt.Println(usage) }
+	flag.Usage = func() { fmt.Print(usage) }
 
 	var (
 		smtp, subject string

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"zgo.at/zstd/ztest"
-	"zgo.at/zstd/ztest/image"
+	"zgo.at/blackmail/internal/ztest"
+	"zgo.at/blackmail/internal/ztest/image"
 )
 
 func TestMessage(t *testing.T) {
