@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/mail"
 	"net/url"
-	"sync"
+	"strconv"
 
 	"zgo.at/blackmail/smtp"
 )
@@ -20,34 +20,42 @@ const (
 )
 
 type senderRelay struct {
-	mu *sync.Mutex
-
-	smtp       string
-	auth       string
-	tls        *tls.Config
-	requireTLS bool
-
-	// Cached
 	host, user, pw string
+	auth           string
+	requireTLS     bool
+	tls            *tls.Config
+}
+
+func newSenderRelay(smtp string) (senderRelay, error) {
+	srv, err := url.Parse(smtp)
+	if err != nil {
+		return senderRelay{}, err
+	}
+	if srv.Host == "" {
+		return senderRelay{}, errors.New("blackmail.senderRelay: host empty")
+	}
+
+	s := senderRelay{
+		auth: AuthPlain,
+		host: srv.Host, // TODO: add port if not given.
+		user: srv.User.Username(),
+	}
+	s.pw, _ = srv.User.Password()
+	return s, nil
+}
+
+func (s senderRelay) info() map[string]string {
+	return map[string]string{
+		"sender":     "senderRelay",
+		"auth":       s.auth,
+		"requireTLS": strconv.FormatBool(s.requireTLS),
+		"host":       s.host,
+		"user":       s.user,
+		"pw":         s.pw,
+	}
 }
 
 func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
-	if s.host == "" {
-		srv, err := url.Parse(s.smtp)
-		if err != nil {
-			return err
-		}
-		if srv.Host == "" {
-			return errors.New("blackmail.senderRelay: host empty")
-		}
-
-		s.mu.Lock()
-		s.user = srv.User.Username()
-		s.pw, _ = srv.User.Password()
-		s.host = srv.Host // TODO: add port if not given.
-		s.mu.Unlock()
-	}
-
 	msg, to, err := message(subject, from, rcpt, firstPart, parts...)
 	if err != nil {
 		return err
@@ -56,7 +64,7 @@ func (s senderRelay) send(subject string, from mail.Address, rcpt []recipient, f
 	var auth smtp.Auth
 	if s.user != "" {
 		switch s.auth {
-		case "", AuthPlain:
+		case AuthPlain:
 			auth = smtp.PlainAuth("", s.user, s.pw)
 		case AuthLogin:
 			auth = smtp.LoginAuth(s.user, s.pw)

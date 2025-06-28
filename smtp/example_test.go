@@ -56,17 +56,6 @@ var (
 	recipients = []string{"foo@example.com"}
 )
 
-func ExampleSendMail_PlainAuth() {
-	// hostname is used by PlainAuth to validate the TLS certificate.
-	hostname := "mail.example.com"
-	auth := smtp.PlainAuth("", "user@example.com", "password")
-
-	err := smtp.SendMail(hostname+":25", auth, from, recipients, msg)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func ExampleSendMail() {
 	// Set up authentication information.
 	auth := smtp.PlainAuth("", "user@example.com", "password")
@@ -79,6 +68,17 @@ func ExampleSendMail() {
 		"\r\n" +
 		"This is the email body.\r\n")
 	err := smtp.SendMail("mail.example.com:25", auth, "sender@example.org", to, msg)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func ExampleSendMail_plainAuth() {
+	// hostname is used by PlainAuth to validate the TLS certificate.
+	hostname := "mail.example.com"
+	auth := smtp.PlainAuth("", "user@example.com", "password")
+
+	err := smtp.SendMail(hostname+":25", auth, from, recipients, msg)
 	if err != nil {
 		log.Fatal(err)
 	}

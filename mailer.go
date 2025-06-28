@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"io"
 	"net/mail"
-	"sync"
 )
 
 // Mailer to send messages; use NewMailer() to construct a new instance.
@@ -18,7 +17,7 @@ const (
 )
 
 // DefaultMailer is used with blackmail.Send().
-var DefaultMailer = NewMailer(ConnectDirect)
+var DefaultMailer = func() Mailer { m, _ := NewMailer(ConnectDirect); return m }()
 
 // MailerOut sets the output for the writer mailer.
 func MailerOut(v io.Writer) senderOpt {
@@ -82,6 +81,10 @@ func MailerRequireTLS(v bool) senderOpt {
 	}
 }
 
+func MailerDebug() senderOpt {
+	return func(s sender) {}
+}
+
 // NewMailer returns a new re-usable mailer.
 //
 // Setting the connection string to blackmail.Writer will print all messages to
@@ -107,26 +110,23 @@ func MailerRequireTLS(v bool) senderOpt {
 //
 // The default authentication is PLAIN; add MailerAuth() to set something
 // different.
-func NewMailer(smtp string, opts ...senderOpt) Mailer {
-	var m Mailer
+func NewMailer(smtp string, opts ...senderOpt) (Mailer, error) {
+	var (
+		s   sender
+		err error
+	)
 	switch smtp {
 	case ConnectWriter:
-		s := senderWriter{w: stdout, mu: new(sync.Mutex)}
-		for _, o := range opts {
-			o(&s)
-		}
-		m = Mailer{sender: s}
-
+		s, err = newSenderWriter(opts)
 	case ConnectDirect:
-		m = Mailer{sender: senderDirect{}}
+		s, err = newSenderDirect()
 	default:
-		m = Mailer{sender: senderRelay{
-			smtp: smtp,
-			mu:   new(sync.Mutex),
-		}}
+		s, err = newSenderRelay(smtp)
 	}
-
-	return m
+	if err != nil {
+		return Mailer{}, err
+	}
+	return Mailer{sender: s}, nil
 }
 
 // Send an email.
@@ -136,9 +136,19 @@ func (m Mailer) Send(subject string, from mail.Address, rcpt []recipient, firstP
 	return m.sender.send(subject, from, rcpt, firstPart, parts...)
 }
 
-// Send an email using the DefaultMailer.
+// Info gets information about the sender.
+func (m Mailer) Info() map[string]string {
+	return m.sender.info()
+}
+
+// Send an email using the [DefaultMailer].
 //
 // The arguments are identical to Message().
 func Send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error {
 	return DefaultMailer.Send(subject, from, rcpt, firstPart, parts...)
+}
+
+// Info gets information about the [DefaultMailer].
+func Info() map[string]string {
+	return DefaultMailer.Info()
 }

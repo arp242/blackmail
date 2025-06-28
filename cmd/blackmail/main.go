@@ -13,7 +13,7 @@ const usage = `Send an email with the blackmail library.
 
 Required flags:
 
-    -mailer          stdout, direct, or a relay URL ("smtp://user:pass@host:25")
+    -smtp            stdout, direct, or a relay URL ("smtp://user:pass@host:25")
 
     -subject         Subject: header.
 
@@ -54,7 +54,12 @@ func main() {
 	rcpt := blackmail.To(to)
 	parts := blackmail.Bodyf("Test\r\n")
 
-	m := blackmail.NewMailer(smtp)
+	m, err := blackmail.NewMailer(smtp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return
+	}
+
 	err = m.Send(subject, mail.Address{Address: from}, rcpt, parts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)

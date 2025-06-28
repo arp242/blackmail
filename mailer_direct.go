@@ -18,6 +18,16 @@ type senderDirect struct {
 	requireTLS bool
 }
 
+func newSenderDirect() (senderDirect, error) {
+	return senderDirect{}, nil
+}
+
+func (s senderDirect) info() map[string]string {
+	return map[string]string{
+		"sender": "senderDirect",
+	}
+}
+
 var hostname sync.Once
 
 // TODO: use requireStartTLS

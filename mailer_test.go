@@ -14,7 +14,10 @@ var (
 
 func TestMailerStdout(t *testing.T) {
 	buf := new(bytes.Buffer)
-	m := NewMailer(ConnectWriter, MailerOut(buf))
+	m, err := NewMailer(ConnectWriter, MailerOut(buf))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
