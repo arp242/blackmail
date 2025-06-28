@@ -87,23 +87,23 @@ func MailerRequireTLS(v bool) senderOpt {
 // Setting the connection string to blackmail.Writer will print all messages to
 // stdout without sending them:
 //
-//   NewMailer(blackmail.Writer)
+//	NewMailer(blackmail.Writer)
 //
 // You can pass Mailer.Writer() as an option to send them somewhere else:
 //
-//   NewMailer(blackmail.Writer, blackmail.MailerOut(os.Stderr))
+//	NewMailer(blackmail.Writer, blackmail.MailerOut(os.Stderr))
 //
-//   buf := new(bytes.Buffer)
-//   NewMailer(blackmail.Writer, blackmail.MailerOut(buf))
+//	buf := new(bytes.Buffer)
+//	NewMailer(blackmail.Writer, blackmail.MailerOut(buf))
 //
 // If the connection string is set to blackmail.Direct, blackmail will look up
 // the MX records and attempt to deliver to them.
 //
-//   NewMailer(blackmail.Direct)
+//	NewMailer(blackmail.Direct)
 //
 // Any URL will be used as a SMTP relay:
 //
-//   NewMailer("smtps://foo:foo@mail.foo.com")
+//	NewMailer("smtps://foo:foo@mail.foo.com")
 //
 // The default authentication is PLAIN; add MailerAuth() to set something
 // different.

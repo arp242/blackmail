@@ -6,12 +6,12 @@
 //
 // It also implements the following extensions:
 //
-//  8BITMIME             RFC 1652
-//  AUTH                 RFC 2554
-//  STARTTLS             RFC 3207
-//  ENHANCEDSTATUSCODES  RFC 2034
-//  SMTPUTF8             RFC 6531
-//  REQUIRETLS           draft-ietf-uta-smtp-require-tls-09
+//	8BITMIME             RFC 1652
+//	AUTH                 RFC 2554
+//	STARTTLS             RFC 3207
+//	ENHANCEDSTATUSCODES  RFC 2034
+//	SMTPUTF8             RFC 6531
+//	REQUIRETLS           draft-ietf-uta-smtp-require-tls-09
 package smtp
 
 import (
@@ -517,7 +517,7 @@ func (c *Client) Quit() error {
 
 // cmd is a convenience function that sends a command and returns the response
 // textproto.Error returned by c.Text.ReadResponse is converted into SMTPError.
-func (c *Client) cmd(expectCode int, format string, args ...interface{}) (int, string, error) {
+func (c *Client) cmd(expectCode int, format string, args ...any) (int, string, error) {
 	id, err := c.Text.Cmd(format, args...)
 	if err != nil {
 		return 0, "", err

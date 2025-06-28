@@ -27,7 +27,7 @@ func TestMailerStdout(t *testing.T) {
 			To("Name", "addr"),
 			Bodyf("Well, hello there!"))
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
@@ -39,7 +39,7 @@ func TestMailerStdout(t *testing.T) {
 			To("Name", "addr"),
 			Bodyf("Well, hello there!"))
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 

@@ -113,7 +113,7 @@ func TestMessage(t *testing.T) {
 		// Load from template.
 		{"template", func() ([]byte, []string, error) {
 			tpl := template.Must(template.New("email").Parse("Hello {{.Name}}"))
-			helper := func(tplname string, args interface{}) func() ([]byte, error) {
+			helper := func(tplname string, args any) func() ([]byte, error) {
 				return func() ([]byte, error) {
 					buf := new(bytes.Buffer)
 					err := tpl.ExecuteTemplate(buf, tplname, args)

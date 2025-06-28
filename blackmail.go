@@ -15,7 +15,7 @@ func Body(contentType string, body []byte) bodyPart {
 }
 
 // Bodyf returns a new text/plain part.
-func Bodyf(s string, args ...interface{}) bodyPart {
+func Bodyf(s string, args ...any) bodyPart {
 	return BodyText([]byte(fmt.Sprintf(s, args...)))
 }
 
@@ -38,34 +38,34 @@ func BodyHTML(body []byte, images ...bodyPart) bodyPart {
 //
 // This is useful when using Go templates for the mail body;
 //
-//    buf := new(bytes.Buffer)
-//    err := tpl.ExecuteTemplate(buf, "email", struct{
-//        Name string
-//    }{"Martin"})
-//    if err != nil {
-//        log.Fatal(err)
-//    }
+//	buf := new(bytes.Buffer)
+//	err := tpl.ExecuteTemplate(buf, "email", struct{
+//	    Name string
+//	}{"Martin"})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
 //
-//    err := Send("Basic test", From("", "me@example.com"),
-//        To("to@to.to"),
-//        Body("text/plain", buf.Bytes()))
+//	err := Send("Basic test", From("", "me@example.com"),
+//	    To("to@to.to"),
+//	    Body("text/plain", buf.Bytes()))
 //
 // With BodyMust(), it's simpler; you just need to define a little helper
 // re-usable helper function and call that:
 //
-//    func template(tplname string, args interface{}) func() ([]byte, error) {
-//        return func() ([]byte, error) {
-//            buf := new(bytes.Buffer)
-//            err := tpl.ExecuteTemplate(buf, tplname, args)
-//            return buf.Bytes(), err
-//        }
-//    }
+//	func template(tplname string, args any) func() ([]byte, error) {
+//	    return func() ([]byte, error) {
+//	        buf := new(bytes.Buffer)
+//	        err := tpl.ExecuteTemplate(buf, tplname, args)
+//	        return buf.Bytes(), err
+//	    }
+//	}
 //
-//    err := Send("Basic test", From("", "me@example.com"),
-//        To("to@to.to"),
-//        BodyMust("text/html", template("email", struct {
-//            Name string
-//        }{"Martin"})))
+//	err := Send("Basic test", From("", "me@example.com"),
+//	    To("to@to.to"),
+//	    BodyMust("text/html", template("email", struct {
+//	        Name string
+//	    }{"Martin"})))
 //
 // Other use cases include things like loading data from a file, reading from a
 // stream, etc.
@@ -98,8 +98,8 @@ func Attachment(contentType, filename string, body []byte) bodyPart {
 //
 // Then use "cid:blackmail:<n>" to reference it:
 //
-//    <img src="cid:blackmail:1">     First InlineImage()
-//    <img src="cid:blackmail:2">     Second InlineImage()
+//	<img src="cid:blackmail:1">     First InlineImage()
+//	<img src="cid:blackmail:2">     Second InlineImage()
 func InlineImage(contentType, filename string, body []byte) bodyPart {
 	contentType, filename, cid := attach(contentType, filename, body)
 	return bodyPart{ct: contentType, filename: filename, inlineAttach: true, body: body, cid: cid}
@@ -110,8 +110,8 @@ func InlineImage(contentType, filename string, body []byte) bodyPart {
 // This will override any headers set automatically by the system, such as Date:
 // or Message-Id:
 //
-//   Headers("My-Header", "value",
-//       "Message-Id", "<my-message-id@example.com>")
+//	Headers("My-Header", "value",
+//	    "Message-Id", "<my-message-id@example.com>")
 func Headers(keyValue ...string) bodyPart {
 	if len(keyValue)%2 == 1 {
 		return bodyPart{err: errors.New("blackmail.Headers: odd argument count")}
@@ -130,8 +130,8 @@ func HeadersAutoreply() bodyPart {
 
 // From makes creating a mail.Address a bit more convenient.
 //
-//   mail.Address{Name: "foo, Address: "foo@example.com}
-//   blackmail.From{"foo, "foo@example.com)
+//	mail.Address{Name: "foo, Address: "foo@example.com}
+//	blackmail.From{"foo, "foo@example.com)
 func From(name, address string) mail.Address {
 	return mail.Address{Name: name, Address: address}
 }
