@@ -16,6 +16,15 @@ var (
 	ErrUnexpectedServerChallenge = errors.New("sasl: unexpected server challenge")
 )
 
+type AuthMethod string
+
+// Authentication methods.
+const (
+	AuthLogin   = AuthMethod("login")
+	AuthPlain   = AuthMethod("plain")
+	AuthCramMD5 = AuthMethod("cram-md5")
+)
+
 // Auth interface to perform challenge-response authentication.
 type Auth interface {
 	// Begins SASL authentication with the server. It returns the

@@ -6,18 +6,9 @@ import (
 	"testing"
 )
 
-var (
-	_ sender = senderWriter{}
-	_ sender = senderRelay{}
-	_ sender = senderDirect{}
-)
-
 func TestMailerStdout(t *testing.T) {
 	buf := new(bytes.Buffer)
-	m, err := NewMailer(ConnectWriter, MailerOut(buf))
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := NewWriter(buf)
 
 	var wg sync.WaitGroup
 	wg.Add(2)

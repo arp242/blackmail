@@ -17,7 +17,6 @@ import (
 	"net/mail"
 	"net/textproto"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -49,11 +48,9 @@ type (
 
 // Allow swapping out in tests.
 var (
-	now                    = func() time.Time { return time.Now() }
-	stdout       io.Writer = os.Stdout
-	stderr       io.Writer = os.Stderr
-	testBoundary           = ""
-	testRandom             = func() uint64 {
+	now          = func() time.Time { return time.Now() }
+	testBoundary = ""
+	testRandom   = func() uint64 {
 		r, _ := rand.Int(rand.Reader, big.NewInt(0).SetUint64(999_999))
 		return r.Uint64()
 	}

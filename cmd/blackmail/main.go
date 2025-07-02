@@ -13,7 +13,9 @@ const usage = `Send an email with the blackmail library.
 
 Required flags:
 
-    -smtp            stdout, direct, or a relay URL ("smtp://user:pass@host:25")
+    -smtp            Relay URL ("smtp://user:pass@host:25") or "stdout"
+
+    -debug           Print full transaction to stdout.
 
     -subject         Subject: header.
 
@@ -33,31 +35,48 @@ func main() {
 
 	var (
 		smtp, subject string
-		from          string
-		to            string
+		from, to      string
+		debug         bool
 	)
-	flag.StringVar(&smtp, "smtp", blackmail.ConnectWriter, "")
+	flag.StringVar(&smtp, "smtp", "stdout", "")
 	flag.StringVar(&from, "from", "", "")
 	flag.StringVar(&subject, "subject", "", "")
 	flag.StringVar(&to, "to", "", "")
+	flag.BoolVar(&debug, "debug", false, "")
 	err := flag.CommandLine.Parse(os.Args[1:])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	if from == "" || to == "" {
-		fmt.Fprintln(os.Stderr, "Need more args")
+	if len(os.Args) == 1 {
+		fmt.Print(usage)
+		return
+	}
+
+	if from == "" {
+		fmt.Fprintln(os.Stderr, "-from needs to be set")
+		os.Exit(1)
+	}
+	if to == "" {
+		fmt.Fprintln(os.Stderr, "-to needs to be set")
 		os.Exit(1)
 	}
 
 	rcpt := blackmail.To(to)
 	parts := blackmail.Bodyf("Test\r\n")
 
-	m, err := blackmail.NewMailer(smtp)
+	m := blackmail.NewWriter(os.Stdout)
+	if smtp != "stdout" {
+		opt := blackmail.RelayOptions{}
+		if debug {
+			opt.Debug = os.Stdout
+		}
+		m, err = blackmail.NewRelay(smtp, &opt)
+	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	err = m.Send(subject, mail.Address{Address: from}, rcpt, parts)

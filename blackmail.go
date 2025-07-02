@@ -9,6 +9,15 @@ import (
 	"net/mail"
 )
 
+// A Mailer sends messages.
+type Mailer interface {
+	// Send an email.
+	Send(subject string, from mail.Address, rcpt []recipient, firstPart bodyPart, parts ...bodyPart) error
+
+	// Info returns some information about this mailer for debugging purposes.
+	Info() map[string]any
+}
+
 // Body returns a new part with the given Content-Type.
 func Body(contentType string, body []byte) bodyPart {
 	return bodyPart{ct: contentType, body: body}
